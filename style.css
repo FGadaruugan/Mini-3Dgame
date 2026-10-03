@@ -1,0 +1,68 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { width:100%; height:100%; margin:0; overflow:hidden; background:#0b1018; }
+body { touch-action:none; user-select:none; -webkit-user-select:none; }
+button { font:inherit; }
+#game-shell, #game, #game canvas { position:fixed; inset:0; width:100%; height:100%; }
+#game canvas { display:block; }
+#hud { position:fixed; inset:0; pointer-events:none; }
+.panel {
+  background:rgba(8,12,18,.72);
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:12px;
+  backdrop-filter:blur(7px);
+  box-shadow:0 8px 26px rgba(0,0,0,.24);
+}
+.top-row { position:absolute; left:16px; top:16px; display:flex; gap:8px; align-items:center; }
+.stat { min-width:74px; padding:8px 12px; display:grid; gap:2px; }
+.stat span { font-size:11px; letter-spacing:.08em; text-transform:uppercase; opacity:.7; }
+.stat strong { font-size:19px; }
+.icon-btn { pointer-events:auto; width:42px; height:42px; color:white; cursor:pointer; }
+.zone { position:absolute; top:16px; left:50%; transform:translateX(-50%); padding:10px 14px; font-weight:700; }
+#minimap {
+  position:absolute; right:16px; top:16px; width:150px; height:150px;
+  border-radius:50%; border:2px solid rgba(255,255,255,.65); background:rgba(9,14,18,.72);
+  box-shadow:0 8px 24px rgba(0,0,0,.35);
+}
+.weapon { position:absolute; right:18px; bottom:18px; min-width:150px; padding:10px 14px; text-align:right; }
+.weapon-name { font-size:11px; letter-spacing:.12em; opacity:.7; }
+.weapon strong { font-size:28px; }
+.small { font-size:11px; opacity:.78; min-height:14px; }
+.help { position:absolute; left:50%; bottom:18px; transform:translateX(-50%); padding:8px 12px; font-size:12px; opacity:.9; }
+.message { position:absolute; left:50%; top:22%; transform:translateX(-50%); padding:11px 16px; font-weight:800; }
+.hidden { display:none !important; }
+#crosshair { position:absolute; left:50%; top:50%; width:28px; height:28px; transform:translate(-50%,-50%); }
+#crosshair i { position:absolute; display:block; background:white; border-radius:1px; box-shadow:0 0 4px #000; }
+#crosshair i:nth-child(1) { left:13px; top:0; width:2px; height:8px; }
+#crosshair i:nth-child(2) { left:13px; bottom:0; width:2px; height:8px; }
+#crosshair i:nth-child(3) { top:13px; left:0; width:8px; height:2px; }
+#crosshair i:nth-child(4) { top:13px; right:0; width:8px; height:2px; }
+#hitmarker { position:absolute; left:50%; top:50%; transform:translate(-50%,-54%); font-size:42px; font-weight:200; opacity:0; transition:opacity .12s; }
+#hitmarker.show { opacity:1; }
+.overlay { position:fixed; inset:0; display:grid; place-items:center; background:linear-gradient(rgba(3,6,12,.58),rgba(3,6,12,.78)); z-index:20; }
+.card { width:min(92vw,440px); padding:28px; border-radius:20px; text-align:center; background:rgba(11,16,24,.9); border:1px solid rgba(255,255,255,.16); box-shadow:0 20px 60px rgba(0,0,0,.45); }
+.card h1,.card h2 { margin:.1em 0 .45em; letter-spacing:.06em; }
+.card p { opacity:.84; line-height:1.5; }
+.card small { display:block; margin-top:14px; opacity:.62; line-height:1.45; }
+.card button { margin-top:10px; border:0; border-radius:12px; padding:12px 18px; font-weight:900; cursor:pointer; background:#f3f4f6; color:#10131a; }
+#mobileControls { display:none; position:fixed; inset:0; pointer-events:none; z-index:10; }
+.pad { position:absolute; left:22px; bottom:28px; width:122px; height:122px; border-radius:50%; background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.2); pointer-events:auto; }
+.stick { position:absolute; left:36px; top:36px; width:50px; height:50px; border-radius:50%; background:rgba(255,255,255,.4); }
+.look-pad { position:absolute; right:0; top:18%; bottom:0; width:55%; pointer-events:auto; }
+.round { position:absolute; pointer-events:auto; border-radius:50%; border:1px solid rgba(255,255,255,.32); background:rgba(17,22,29,.64); color:white; font-weight:900; }
+.fire { width:82px; height:82px; right:26px; bottom:42px; }
+.reload { width:58px; height:58px; right:112px; bottom:122px; font-size:12px; }
+@media (pointer:coarse), (max-width:800px) {
+  #mobileControls { display:block; }
+  #desktopHelp { display:none; }
+  #minimap { width:110px; height:110px; right:10px; top:10px; }
+  .top-row { left:10px; top:10px; gap:5px; }
+  .stat { min-width:58px; padding:7px 9px; }
+  .stat strong { font-size:16px; }
+  .zone { top:62px; font-size:12px; }
+  .weapon { right:10px; bottom:194px; min-width:125px; }
+  #pauseBtn { width:36px; height:36px; }
+}
