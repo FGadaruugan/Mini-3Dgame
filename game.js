@@ -5,7 +5,7 @@ const UI = {
   hp: $('hp'), alive: $('alive'), kills: $('kills'), ammo: $('ammo'), reserve: $('reserve'),
   zoneInfo: $('zoneInfo'), reloadState: $('reloadState'), minimap: $('minimap'), hitmarker: $('hitmarker'),
   message: $('message'), startOverlay: $('startOverlay'), endOverlay: $('endOverlay'), endTitle: $('endTitle'), endText: $('endText'),
-  startBtn: $('startBtn'), restartBtn: $('restartBtn'), lobbyBtn: $('lobbyBtn'), pauseBtn: $('pauseBtn'),
+  startBtn: $('startBtn'), restartBtn: $('restartBtn'), lobbyBtn: $('lobbyBtn'), fullscreenBtn: $('fullscreenBtn'), pauseBtn: $('pauseBtn'),
   lobbyHint: $('lobbyHint'), lobbyPlayers: $('lobbyPlayers'),
   hud: $('hud'), mobileControls: $('mobileControls'),
   movePad: $('movePad'), moveStick: $('moveStick'), lookPad: $('lookPad'), fireBtn: $('fireBtn'), reloadBtn: $('reloadBtn')
@@ -331,6 +331,7 @@ function bindInputs() {
     });
   });
 
+  UI.fullscreenBtn?.addEventListener('click', enterFullscreen);
   UI.startBtn.addEventListener('click', startMatch);
   UI.restartBtn.addEventListener('click', () => {
     resetMatch();
