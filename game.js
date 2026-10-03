@@ -208,7 +208,7 @@ function resetMatch() {
   mobile.firing = false;
   centerStick();
   player.position.set(0,0,67);
-  player.rotation.y = yaw;
+  player.rotation.y = yaw + Math.PI;
   const spawns = [[-66,-58],[65,-60],[-63,60],[62,57],[0,-68]];
   for (let i=0;i<GAME.botCount;i++) {
     const bot = makeBot(i);
@@ -475,11 +475,23 @@ function updatePlayer(dt) {
     mz/=len;
   }
   const speed=(keys.has('ShiftLeft')||keys.has('ShiftRight'))?GAME.sprintSpeed:GAME.playerSpeed;
+
+  // Keep yaw numerically stable even after many full 360-degree rotations.
+  yaw = Math.atan2(Math.sin(yaw), Math.cos(yaw));
+
+  // Camera/look forward direction in world space.
   const forward=new THREE.Vector3(Math.sin(yaw),0,Math.cos(yaw));
-  const right=new THREE.Vector3(forward.z,0,-forward.x);
+
+  // Screen-right vector. The previous vector had the sign reversed,
+  // which made A/D and the mobile joystick move left/right backwards.
+  const right=new THREE.Vector3(-forward.z,0,forward.x);
+
   const delta=forward.multiplyScalar(-mz*speed*dt).add(right.multiplyScalar(mx*speed*dt));
   moveWithCollision(player,delta,1.05);
-  player.rotation.y=yaw;
+
+  // The model's natural forward axis is -Z, so add PI to align it
+  // with the camera/look direction instead of facing backwards.
+  player.rotation.y=yaw+Math.PI;
   if(mobile.firing) shoot();
 }
 
