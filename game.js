@@ -246,23 +246,60 @@ function showLobby() {
 
 async function enterFullscreen() {
   const root=document.documentElement;
+  const shell=document.getElementById('game-shell') || root;
+  let entered=false;
 
   try {
-    if (!document.fullscreenElement && root.requestFullscreen) {
-      await root.requestFullscreen({ navigationUI: 'hide' });
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
+      entered=true;
+    } else if (shell.requestFullscreen) {
+      // Use the simplest call first for best Android Chrome compatibility.
+      await shell.requestFullscreen();
+      entered=true;
+    } else if (shell.webkitRequestFullscreen) {
+      shell.webkitRequestFullscreen();
+      entered=true;
+    } else if (root.requestFullscreen) {
+      await root.requestFullscreen();
+      entered=true;
+    } else if (root.webkitRequestFullscreen) {
+      root.webkitRequestFullscreen();
+      entered=true;
     }
   } catch (error) {
-    // Some mobile browsers may deny fullscreen; the game still works normally.
+    entered=false;
+  }
+
+  // Try to collapse the browser chrome even when Fullscreen API is unavailable.
+  try {
+    window.scrollTo(0,1);
+  } catch (error) {}
+
+  if (entered) {
+    document.body.classList.add('is-fullscreen');
+    if (UI.lobbyHint) UI.lobbyHint.textContent='Fullscreen enabled.';
+  } else {
+    if (UI.lobbyHint) {
+      UI.lobbyHint.textContent='Chrome did not allow fullscreen in this tab. Use browser menu → Add to Home screen / Install app for true fullscreen.';
+    }
   }
 
   try {
-    if (screen.orientation?.lock) {
+    if (entered && screen.orientation?.lock) {
       await screen.orientation.lock('landscape');
     }
-  } catch (error) {
-    // Orientation locking is optional and browser/device dependent.
-  }
+  } catch (error) {}
+
+  return entered;
 }
+
+document.addEventListener('fullscreenchange', () => {
+  document.body.classList.toggle('is-fullscreen', Boolean(document.fullscreenElement));
+});
+
+document.addEventListener('webkitfullscreenchange', () => {
+  document.body.classList.toggle('is-fullscreen', Boolean(document.webkitFullscreenElement));
+});
 
 async function startMatch() {
   if (selectedMode !== 'solo') {
