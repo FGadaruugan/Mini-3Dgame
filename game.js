@@ -5,7 +5,9 @@ const UI = {
   hp: $('hp'), alive: $('alive'), kills: $('kills'), ammo: $('ammo'), reserve: $('reserve'),
   zoneInfo: $('zoneInfo'), reloadState: $('reloadState'), minimap: $('minimap'), hitmarker: $('hitmarker'),
   message: $('message'), startOverlay: $('startOverlay'), endOverlay: $('endOverlay'), endTitle: $('endTitle'), endText: $('endText'),
-  startBtn: $('startBtn'), restartBtn: $('restartBtn'), pauseBtn: $('pauseBtn'),
+  startBtn: $('startBtn'), restartBtn: $('restartBtn'), lobbyBtn: $('lobbyBtn'), pauseBtn: $('pauseBtn'),
+  lobbyHint: $('lobbyHint'), lobbyPlayers: $('lobbyPlayers'),
+  hud: $('hud'), mobileControls: $('mobileControls'),
   movePad: $('movePad'), moveStick: $('moveStick'), lookPad: $('lookPad'), fireBtn: $('fireBtn'), reloadBtn: $('reloadBtn')
 };
 const mm = UI.minimap.getContext('2d');
@@ -33,6 +35,7 @@ const GAME = {
 
 let scene, camera, renderer, clock, player, ground, zoneRing;
 let started = false, paused = false, ended = false;
+let selectedMode = 'solo';
 let yaw = Math.PI, pitch = -0.18, bodyYaw = 0, aiming = false;
 let hp = GAME.maxHp, ammo = GAME.magSize, reserve = 120, kills = 0, reloading = false;
 let lastShot = 0, elapsed = 0, spawnProtection = 0;
@@ -66,6 +69,7 @@ function init() {
   createPlayer();
   bindInputs();
   resetMatch();
+  showLobby();
   animate();
 }
 
@@ -221,15 +225,43 @@ function resetMatch() {
   updateHud();
 }
 
+function setGameUiVisible(visible) {
+  UI.hud.classList.toggle('hidden',!visible);
+  UI.mobileControls.classList.toggle('hidden',!visible);
+}
+
+function showLobby() {
+  document.exitPointerLock?.();
+  started=false;
+  paused=false;
+  ended=false;
+  reloading=false;
+  mobile.firing=false;
+  keys.clear();
+  setGameUiVisible(false);
+  UI.endOverlay.classList.add('hidden');
+  UI.startOverlay.classList.remove('hidden');
+  UI.lobbyHint.textContent='SOLO mode is ready.';
+}
+
 function startMatch() {
-  if (!started) {
-    resetMatch();
-    started = true;
+  if (selectedMode !== 'solo') {
+    UI.lobbyHint.textContent='This multiplayer mode is coming soon.';
+    return;
   }
+
+  resetMatch();
+  started=true;
+  paused=false;
+  ended=false;
   UI.startOverlay.classList.add('hidden');
-  paused = false;
+  UI.endOverlay.classList.add('hidden');
+  setGameUiVisible(true);
   clock.getDelta();
-  if (matchMedia('(pointer:fine)').matches) renderer.domElement.requestPointerLock?.();
+
+  if (matchMedia('(pointer:fine)').matches) {
+    renderer.domElement.requestPointerLock?.();
+  }
 }
 
 function bindInputs() {
@@ -258,12 +290,35 @@ function bindInputs() {
   });
   renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
 
+  document.querySelectorAll('.mode-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const mode=card.dataset.mode;
+      if(card.classList.contains('locked')){
+        UI.lobbyHint.textContent=mode==='friend'
+          ? 'FRIEND mode: multiplayer will be added next.'
+          : '1V1 mode: multiplayer will be added next.';
+        return;
+      }
+
+      selectedMode=mode;
+      document.querySelectorAll('.mode-card').forEach(item=>item.classList.remove('active'));
+      card.classList.add('active');
+      UI.lobbyPlayers.textContent='1 + 5 BOTS';
+      UI.lobbyHint.textContent='SOLO mode is ready.';
+    });
+  });
+
   UI.startBtn.addEventListener('click', startMatch);
   UI.restartBtn.addEventListener('click', () => {
     resetMatch();
-    started = true;
+    started=true;
+    paused=false;
+    ended=false;
+    setGameUiVisible(true);
     UI.endOverlay.classList.add('hidden');
+    clock.getDelta();
   });
+  UI.lobbyBtn.addEventListener('click', showLobby);
   UI.pauseBtn.addEventListener('click', togglePause);
   UI.reloadBtn.addEventListener('pointerdown', e => {
     e.preventDefault();
