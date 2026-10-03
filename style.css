@@ -679,3 +679,442 @@ button { font:inherit; }
     padding-bottom:2px;
   }
 }
+
+
+/* ===== Premium mobile lobby refresh ===== */
+.mobile-lobbybar,
+.hero-kicker,
+.hero-chips {
+  display:none;
+}
+
+.play-btn {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+}
+
+.play-triangle {
+  display:grid;
+  place-items:center;
+  width:26px;
+  height:26px;
+  border-radius:50%;
+  font-size:11px;
+  background:rgba(17,21,27,.12);
+}
+
+@media (orientation:landscape) and (max-height:760px) and (pointer:coarse) {
+  .lobby {
+    padding:
+      env(safe-area-inset-top)
+      env(safe-area-inset-right)
+      env(safe-area-inset-bottom)
+      env(safe-area-inset-left);
+    background:
+      radial-gradient(circle at 24% 54%, rgba(241,200,75,.10), transparent 26%),
+      radial-gradient(circle at 78% 35%, rgba(93,145,191,.16), transparent 35%),
+      linear-gradient(110deg, rgba(3,7,12,.93) 0%, rgba(7,13,20,.78) 46%, rgba(7,13,20,.58) 100%);
+  }
+
+  .lobby::before {
+    background:
+      linear-gradient(90deg, rgba(0,0,0,.52), transparent 43%, rgba(0,0,0,.16)),
+      linear-gradient(180deg, rgba(255,255,255,.035), transparent 18%),
+      linear-gradient(0deg, rgba(0,0,0,.48), transparent 36%);
+  }
+
+  .lobby::after {
+    content:"";
+    position:absolute;
+    inset:0;
+    pointer-events:none;
+    box-shadow:inset 0 0 90px rgba(0,0,0,.40);
+  }
+
+  .lobby-topbar {
+    display:none;
+  }
+
+  .lobby-content {
+    grid-template-columns:minmax(180px,.78fr) minmax(360px,1.22fr);
+    grid-template-rows:auto minmax(0,1fr);
+    gap:10px 18px;
+    align-items:center;
+    padding:10px 18px 8px;
+  }
+
+  .mobile-lobbybar {
+    grid-column:1 / -1;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    min-height:42px;
+    padding:5px 9px;
+    border:1px solid rgba(255,255,255,.09);
+    border-radius:13px;
+    background:linear-gradient(90deg,rgba(8,13,20,.72),rgba(8,13,20,.44));
+    box-shadow:0 10px 28px rgba(0,0,0,.22);
+    backdrop-filter:blur(10px);
+  }
+
+  .mobile-brand,
+  .mobile-profile {
+    display:flex;
+    align-items:center;
+    gap:8px;
+    min-width:0;
+  }
+
+  .mobile-brand-mark,
+  .mobile-avatar {
+    display:grid;
+    place-items:center;
+    flex:0 0 auto;
+    width:31px;
+    height:31px;
+    border-radius:9px;
+    font-size:9px;
+    font-weight:1000;
+    letter-spacing:.04em;
+    color:#10131a;
+    background:linear-gradient(145deg,#f6d65d,#e9b932);
+    box-shadow:0 6px 18px rgba(241,200,75,.18);
+  }
+
+  .mobile-avatar {
+    border-radius:50%;
+    color:#fff;
+    background:linear-gradient(145deg,#58697c,#26323f);
+    border:1px solid rgba(255,255,255,.18);
+    box-shadow:none;
+  }
+
+  .mobile-brand strong,
+  .mobile-profile strong {
+    display:block;
+    max-width:190px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    font-size:9px;
+    letter-spacing:.09em;
+  }
+
+  .mobile-brand small,
+  .mobile-profile small {
+    display:block;
+    margin-top:1px;
+    font-size:7px;
+    letter-spacing:.12em;
+    opacity:.50;
+  }
+
+  .lobby-hero {
+    align-self:center;
+    padding:0 0 0 2px;
+  }
+
+  .season-tag {
+    padding:4px 7px;
+    border-left-width:2px;
+    border-radius:0 5px 5px 0;
+    font-size:8px;
+  }
+
+  .hero-kicker {
+    display:block;
+    margin-top:8px;
+    font-size:8px;
+    font-weight:900;
+    letter-spacing:.22em;
+    opacity:.52;
+  }
+
+  .lobby-hero h1 {
+    margin:4px 0 5px;
+    font-size:clamp(33px,8.3vh,54px);
+    line-height:.82;
+    letter-spacing:-.045em;
+    text-shadow:0 12px 40px rgba(0,0,0,.48);
+  }
+
+  .lobby-hero p {
+    display:block;
+    max-width:260px;
+    margin:0;
+    font-size:9px;
+    line-height:1.35;
+    opacity:.58;
+  }
+
+  .hero-chips {
+    display:flex;
+    flex-wrap:wrap;
+    gap:5px;
+    margin-top:9px;
+  }
+
+  .hero-chips span {
+    padding:4px 7px;
+    border:1px solid rgba(255,255,255,.10);
+    border-radius:999px;
+    background:rgba(8,13,20,.42);
+    font-size:7px;
+    font-weight:800;
+    letter-spacing:.08em;
+    opacity:.74;
+  }
+
+  .lobby-panel {
+    width:100%;
+    max-width:560px;
+    justify-self:end;
+    align-self:center;
+    padding:11px;
+    border-radius:17px;
+    border:1px solid rgba(255,255,255,.12);
+    background:
+      linear-gradient(145deg,rgba(12,18,27,.91),rgba(8,13,20,.80));
+    box-shadow:
+      0 22px 65px rgba(0,0,0,.38),
+      inset 0 1px 0 rgba(255,255,255,.035);
+    backdrop-filter:blur(16px);
+  }
+
+  .mode-title {
+    margin:0 0 6px 2px;
+    font-size:8px;
+    letter-spacing:.20em;
+    opacity:.46;
+  }
+
+  .mode-grid {
+    gap:6px;
+  }
+
+  .mode-card {
+    min-height:43px;
+    grid-template-columns:34px 1fr auto;
+    gap:8px;
+    padding:5px 8px;
+    border-radius:11px;
+    background:linear-gradient(90deg,rgba(255,255,255,.048),rgba(255,255,255,.025));
+  }
+
+  .mode-card.active {
+    border-color:rgba(241,200,75,.70);
+    background:
+      linear-gradient(90deg,rgba(241,200,75,.19),rgba(241,200,75,.045) 58%,rgba(255,255,255,.028));
+    box-shadow:
+      inset 3px 0 0 #f1c84b,
+      0 5px 18px rgba(241,200,75,.06);
+  }
+
+  .mode-icon {
+    width:31px;
+    height:31px;
+    border-radius:8px;
+    font-size:13px;
+  }
+
+  .mode-copy strong {
+    font-size:11px;
+    letter-spacing:.075em;
+  }
+
+  .mode-copy small {
+    margin-top:1px;
+    font-size:7px;
+  }
+
+  .mode-status {
+    padding:4px 7px;
+    border-radius:999px;
+    font-size:7px;
+  }
+
+  .lobby-map {
+    margin:7px 0;
+    padding:6px 8px;
+    gap:8px;
+    border-radius:10px;
+    background:rgba(0,0,0,.18);
+  }
+
+  .lobby-map div {
+    padding-left:7px;
+    border-left:2px solid rgba(255,255,255,.08);
+  }
+
+  .lobby-map div:first-child {
+    border-left-color:rgba(241,200,75,.7);
+  }
+
+  .lobby-map span {
+    margin-bottom:1px;
+    font-size:6px;
+  }
+
+  .lobby-map strong {
+    font-size:9px;
+  }
+
+  .play-btn {
+    min-height:42px;
+    border-radius:11px;
+    font-size:12px;
+    letter-spacing:.13em;
+    background:linear-gradient(100deg,#f6d65d,#edbd36 72%,#f8df78);
+    box-shadow:
+      0 10px 28px rgba(241,200,75,.20),
+      inset 0 1px 0 rgba(255,255,255,.32);
+  }
+
+  .play-btn:active {
+    transform:scale(.985);
+  }
+
+  .play-triangle {
+    width:23px;
+    height:23px;
+    font-size:9px;
+  }
+
+  .lobby-hint {
+    min-height:10px;
+    margin-top:4px;
+    font-size:7px;
+    opacity:.42;
+  }
+
+  .lobby-footer {
+    min-height:30px;
+    padding:4px 18px;
+    align-items:center;
+    border-top-color:rgba(255,255,255,.06);
+    background:rgba(4,8,13,.56);
+    backdrop-filter:blur(10px);
+    opacity:.82;
+  }
+
+  .lobby-footer > span {
+    font-size:7px;
+    opacity:.54;
+  }
+
+  .fullscreen-btn {
+    padding:5px 10px;
+    border-radius:999px;
+    border-color:rgba(255,255,255,.13);
+    background:rgba(255,255,255,.06);
+    font-size:7px;
+  }
+}
+
+@media (orientation:landscape) and (max-height:430px) and (pointer:coarse) {
+  .lobby-content {
+    grid-template-columns:minmax(145px,.55fr) minmax(330px,1.45fr);
+    grid-template-rows:34px minmax(0,1fr);
+    gap:5px 10px;
+    padding:5px 12px 4px;
+  }
+
+  .mobile-lobbybar {
+    min-height:34px;
+    padding:3px 7px;
+    border-radius:10px;
+  }
+
+  .mobile-brand-mark,
+  .mobile-avatar {
+    width:26px;
+    height:26px;
+    font-size:8px;
+  }
+
+  .mobile-brand strong,
+  .mobile-profile strong {
+    font-size:8px;
+  }
+
+  .mobile-brand small,
+  .mobile-profile small {
+    font-size:6px;
+  }
+
+  .hero-kicker,
+  .lobby-hero p,
+  .hero-chips {
+    display:none;
+  }
+
+  .season-tag {
+    font-size:7px;
+  }
+
+  .lobby-hero h1 {
+    margin-top:5px;
+    font-size:28px;
+  }
+
+  .lobby-panel {
+    padding:7px 8px;
+    border-radius:12px;
+  }
+
+  .mode-title {
+    margin-bottom:3px;
+  }
+
+  .mode-grid {
+    gap:4px;
+  }
+
+  .mode-card {
+    min-height:34px;
+    grid-template-columns:27px 1fr auto;
+    padding:3px 6px;
+  }
+
+  .mode-icon {
+    width:25px;
+    height:25px;
+    font-size:11px;
+  }
+
+  .mode-copy strong {
+    font-size:9px;
+  }
+
+  .mode-copy small,
+  .mode-status {
+    font-size:6px;
+  }
+
+  .lobby-map {
+    margin:4px 0;
+    padding:4px 6px;
+  }
+
+  .play-btn {
+    min-height:31px;
+    font-size:10px;
+  }
+
+  .play-triangle {
+    width:19px;
+    height:19px;
+    font-size:8px;
+  }
+
+  .lobby-hint {
+    display:none;
+  }
+
+  .lobby-footer {
+    min-height:24px;
+    padding:2px 12px;
+  }
+}
