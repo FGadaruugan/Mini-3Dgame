@@ -244,11 +244,34 @@ function showLobby() {
   UI.lobbyHint.textContent='SOLO mode is ready.';
 }
 
-function startMatch() {
+async function enterFullscreen() {
+  const root=document.documentElement;
+
+  try {
+    if (!document.fullscreenElement && root.requestFullscreen) {
+      await root.requestFullscreen({ navigationUI: 'hide' });
+    }
+  } catch (error) {
+    // Some mobile browsers may deny fullscreen; the game still works normally.
+  }
+
+  try {
+    if (screen.orientation?.lock) {
+      await screen.orientation.lock('landscape');
+    }
+  } catch (error) {
+    // Orientation locking is optional and browser/device dependent.
+  }
+}
+
+async function startMatch() {
   if (selectedMode !== 'solo') {
     UI.lobbyHint.textContent='This multiplayer mode is coming soon.';
     return;
   }
+
+  // Fullscreen must be requested from the PLAY user gesture on mobile.
+  await enterFullscreen();
 
   resetMatch();
   started=true;
