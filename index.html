@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <meta name="theme-color" content="#111827" />
+  <title>Mini 3D Battle</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div id="game-shell">
+    <div id="game"></div>
+
+    <div id="hud">
+      <div class="top-row">
+        <div class="panel stat"><span>HP</span><strong id="hp">100</strong></div>
+        <div class="panel stat"><span>Alive</span><strong id="alive">6</strong></div>
+        <div class="panel stat"><span>Kills</span><strong id="kills">0</strong></div>
+        <button id="pauseBtn" class="panel icon-btn" aria-label="Pause">Ⅱ</button>
+      </div>
+
+      <div id="zoneInfo" class="panel zone">Zone: 100 m</div>
+      <canvas id="minimap" width="180" height="180"></canvas>
+
+      <div class="weapon panel">
+        <div class="weapon-name">RIFLE</div>
+        <div><strong id="ammo">30</strong><span> / </span><span id="reserve">120</span></div>
+        <div id="reloadState" class="small"></div>
+      </div>
+
+      <div id="crosshair" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+      <div id="hitmarker" aria-hidden="true">×</div>
+
+      <div id="message" class="panel message hidden"></div>
+      <div id="desktopHelp" class="panel help">WASD move · Mouse aim · LMB fire · RMB ADS · R reload · P pause</div>
+    </div>
+
+    <div id="mobileControls" aria-hidden="true">
+      <div id="movePad" class="pad"><div id="moveStick" class="stick"></div></div>
+      <div id="lookPad" class="look-pad"></div>
+      <button id="fireBtn" class="round fire">FIRE</button>
+      <button id="reloadBtn" class="round reload">RLD</button>
+    </div>
+
+    <div id="startOverlay" class="overlay">
+      <div class="card">
+        <h1>MINI 3D BATTLE</h1>
+        <p>Survive against 5 bots while the safe zone keeps shrinking.</p>
+        <button id="startBtn">START MATCH</button>
+        <small>Desktop: click the game to lock the mouse. Mobile: left pad moves, drag right side to aim.</small>
+      </div>
+    </div>
+
+    <div id="endOverlay" class="overlay hidden">
+      <div class="card">
+        <h2 id="endTitle">MATCH OVER</h2>
+        <p id="endText"></p>
+        <button id="restartBtn">PLAY AGAIN</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./game.js"></script>
+</body>
+</html>
