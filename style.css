@@ -427,3 +427,195 @@ button { font:inherit; }
     margin:0 auto;
   }
 }
+
+
+/* Compact lobby for phone landscape / short browser viewports */
+@media (orientation:landscape) and (max-height:600px) {
+  .lobby-topbar {
+    min-height:48px;
+    padding:6px 14px;
+  }
+
+  .brand-mark,
+  .avatar {
+    width:34px;
+    height:34px;
+  }
+
+  .lobby-brand strong,
+  .lobby-player strong {
+    font-size:11px;
+  }
+
+  .lobby-brand small,
+  .lobby-player small {
+    font-size:8px;
+  }
+
+  .lobby-content {
+    flex:1;
+    min-height:0;
+    grid-template-columns:minmax(150px,.62fr) minmax(330px,1.38fr);
+    gap:14px;
+    align-items:stretch;
+    padding:8px 16px;
+    overflow:hidden;
+  }
+
+  .lobby-hero {
+    align-self:center;
+    padding:0;
+  }
+
+  .season-tag {
+    padding:4px 7px;
+    font-size:9px;
+  }
+
+  .lobby-hero h1 {
+    margin:8px 0 4px;
+    font-size:clamp(30px,7vh,48px);
+    line-height:.86;
+  }
+
+  .lobby-hero p {
+    display:none;
+  }
+
+  .lobby-panel {
+    align-self:stretch;
+    min-height:0;
+    padding:9px 10px;
+    border-radius:12px;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+  }
+
+  .mode-title {
+    margin-bottom:5px;
+    font-size:9px;
+  }
+
+  .mode-grid {
+    gap:5px;
+  }
+
+  .mode-card {
+    min-height:40px;
+    padding:4px 7px;
+    grid-template-columns:32px 1fr auto;
+    gap:7px;
+    border-radius:9px;
+  }
+
+  .mode-icon {
+    width:30px;
+    height:30px;
+    border-radius:7px;
+    font-size:13px;
+  }
+
+  .mode-copy strong {
+    font-size:11px;
+  }
+
+  .mode-copy small {
+    margin-top:0;
+    font-size:7px;
+  }
+
+  .mode-status {
+    padding:4px 6px;
+    font-size:7px;
+  }
+
+  .lobby-map {
+    margin:6px 0;
+    padding:5px 8px;
+    gap:8px;
+  }
+
+  .lobby-map span {
+    font-size:7px;
+  }
+
+  .lobby-map strong {
+    font-size:10px;
+  }
+
+  .play-btn {
+    min-height:36px;
+    font-size:12px;
+    border-radius:8px;
+  }
+
+  .lobby-hint {
+    min-height:12px;
+    margin-top:4px;
+    font-size:8px;
+  }
+
+  .lobby-footer {
+    padding:4px 14px;
+    font-size:7px;
+  }
+}
+
+/* Extremely short landscape screens: prioritize the controls panel */
+@media (orientation:landscape) and (max-height:430px) {
+  .lobby-topbar {
+    min-height:42px;
+    padding:4px 12px;
+  }
+
+  .brand-mark,
+  .avatar {
+    width:30px;
+    height:30px;
+  }
+
+  .lobby-content {
+    grid-template-columns:minmax(120px,.45fr) minmax(340px,1.55fr);
+    gap:10px;
+    padding:5px 12px;
+  }
+
+  .lobby-hero h1 {
+    font-size:30px;
+  }
+
+  .season-tag {
+    font-size:8px;
+  }
+
+  .lobby-panel {
+    padding:6px 8px;
+  }
+
+  .mode-card {
+    min-height:34px;
+  }
+
+  .mode-icon {
+    width:26px;
+    height:26px;
+  }
+
+  .lobby-map {
+    margin:4px 0;
+    padding:4px 7px;
+  }
+
+  .play-btn {
+    min-height:32px;
+  }
+
+  .lobby-hint {
+    display:none;
+  }
+
+  .lobby-footer {
+    padding:3px 12px;
+  }
+}
