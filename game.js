@@ -33,7 +33,7 @@ const GAME = {
 
 let scene, camera, renderer, clock, player, ground, zoneRing;
 let started = false, paused = false, ended = false;
-let yaw = Math.PI, pitch = -0.18, aiming = false;
+let yaw = Math.PI, pitch = -0.18, bodyYaw = 0, aiming = false;
 let hp = GAME.maxHp, ammo = GAME.magSize, reserve = 120, kills = 0, reloading = false;
 let lastShot = 0, elapsed = 0, spawnProtection = 0;
 let bots = [], colliders = [], tracers = [];
@@ -208,7 +208,8 @@ function resetMatch() {
   mobile.firing = false;
   centerStick();
   player.position.set(0,0,67);
-  player.rotation.y = yaw + Math.PI;
+  bodyYaw = wrapAngle(yaw + Math.PI);
+  player.rotation.y = bodyYaw;
   const spawns = [[-66,-58],[65,-60],[-63,60],[62,57],[0,-68]];
   for (let i=0;i<GAME.botCount;i++) {
     const bot = makeBot(i);
@@ -241,8 +242,9 @@ function bindInputs() {
   addEventListener('keyup', e => keys.delete(e.code));
   addEventListener('mousemove', e => {
     if (!started || paused || ended || document.pointerLockElement !== renderer.domElement) return;
-    yaw -= e.movementX * .0023;
-    pitch -= e.movementY * .0018;
+    // Drag/move right -> look right. Move up -> look up.
+    yaw = wrapAngle(yaw - e.movementX * .0023);
+    pitch += e.movementY * .0018;
     pitch = THREE.MathUtils.clamp(pitch,-.62,.34);
   });
   renderer.domElement.addEventListener('mousedown', e => {
@@ -345,8 +347,9 @@ function setupLookPad() {
     const dy=e.clientY-mobile.lookLastY;
     mobile.lookLastX=e.clientX;
     mobile.lookLastY=e.clientY;
-    yaw -= dx*.006;
-    pitch -= dy*.0045;
+    // PUBG-style camera drag: right -> right, up -> up.
+    yaw = wrapAngle(yaw - dx*.006);
+    pitch += dy*.0045;
     pitch = THREE.MathUtils.clamp(pitch,-.62,.34);
   });
   const end=e=>{
@@ -469,30 +472,50 @@ function updatePlayer(dt) {
   if(keys.has('KeyS')) mz+=1;
   mx += mobile.moveX;
   mz += mobile.moveY;
-  const len=Math.hypot(mx,mz);
-  if(len>1){
-    mx/=len;
-    mz/=len;
+
+  const inputLength=Math.hypot(mx,mz);
+  if(inputLength>1){
+    mx/=inputLength;
+    mz/=inputLength;
   }
+
   const speed=(keys.has('ShiftLeft')||keys.has('ShiftRight'))?GAME.sprintSpeed:GAME.playerSpeed;
-
-  // Keep yaw numerically stable even after many full 360-degree rotations.
-  yaw = Math.atan2(Math.sin(yaw), Math.cos(yaw));
-
-  // Camera/look forward direction in world space.
   const forward=new THREE.Vector3(Math.sin(yaw),0,Math.cos(yaw));
-
-  // Screen-right vector. The previous vector had the sign reversed,
-  // which made A/D and the mobile joystick move left/right backwards.
   const right=new THREE.Vector3(-forward.z,0,forward.x);
 
-  const delta=forward.multiplyScalar(-mz*speed*dt).add(right.multiplyScalar(mx*speed*dt));
-  moveWithCollision(player,delta,1.05);
+  const moveDir=forward.clone().multiplyScalar(-mz).add(right.clone().multiplyScalar(mx));
+  const isMoving=moveDir.lengthSq()>.0025;
 
-  // The model's natural forward axis is -Z, so add PI to align it
-  // with the camera/look direction instead of facing backwards.
-  player.rotation.y=yaw+Math.PI;
+  if(isMoving){
+    moveDir.normalize();
+    moveWithCollision(player,moveDir.clone().multiplyScalar(speed*dt),1.05);
+  }
+
+  // Free-look camera and character rotation are separate.
+  // While moving, the body turns toward movement. While aiming/firing,
+  // it turns toward the camera/crosshair direction.
+  let desiredBodyYaw=bodyYaw;
+  const recentlyFired=performance.now()-lastShot<180;
+  if(aiming || mobile.firing || recentlyFired){
+    desiredBodyYaw=wrapAngle(yaw+Math.PI);
+  } else if(isMoving){
+    const movementYaw=Math.atan2(moveDir.x,moveDir.z);
+    desiredBodyYaw=wrapAngle(movementYaw+Math.PI);
+  }
+
+  bodyYaw=lerpAngle(bodyYaw,desiredBodyYaw,1-Math.exp(-12*dt));
+  player.rotation.y=bodyYaw;
+
   if(mobile.firing) shoot();
+}
+
+function wrapAngle(angle) {
+  return Math.atan2(Math.sin(angle),Math.cos(angle));
+}
+
+function lerpAngle(from,to,t) {
+  const delta=wrapAngle(to-from);
+  return wrapAngle(from+delta*t);
 }
 
 function moveWithCollision(obj, delta, radius) {
