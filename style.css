@@ -1118,3 +1118,68 @@ button { font:inherit; }
     padding:2px 12px;
   }
 }
+
+
+/* Landscape-only mobile experience */
+.rotate-notice {
+  display:none;
+}
+
+@media (pointer:coarse) and (orientation:portrait) {
+  #game-shell {
+    display:none !important;
+  }
+
+  .rotate-notice {
+    position:fixed;
+    inset:0;
+    z-index:9999;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    padding:28px;
+    text-align:center;
+    color:#fff;
+    background:
+      radial-gradient(circle at 50% 42%, rgba(241,200,75,.12), transparent 32%),
+      linear-gradient(160deg,#08101a,#03070c);
+  }
+
+  .rotate-phone {
+    display:grid;
+    place-items:center;
+    width:78px;
+    height:78px;
+    border-radius:22px;
+    border:1px solid rgba(241,200,75,.45);
+    background:rgba(241,200,75,.08);
+    color:#f1c84b;
+    font-size:42px;
+    font-weight:900;
+    box-shadow:0 16px 50px rgba(0,0,0,.35);
+  }
+
+  .rotate-notice strong {
+    margin-top:5px;
+    font-size:18px;
+    letter-spacing:.08em;
+  }
+
+  .rotate-notice span {
+    font-size:11px;
+    letter-spacing:.08em;
+    opacity:.56;
+  }
+}
+
+@media (pointer:coarse) and (orientation:landscape) {
+  #game-shell {
+    display:block;
+  }
+
+  .rotate-notice {
+    display:none !important;
+  }
+}
