@@ -11,7 +11,7 @@
   <div id="game-shell">
     <div id="game"></div>
 
-    <div id="hud">
+    <div id="hud" class="hidden">
       <div class="top-row">
         <div class="panel stat"><span>HP</span><strong id="hp">100</strong></div>
         <div class="panel stat"><span>Alive</span><strong id="alive">6</strong></div>
@@ -35,19 +35,89 @@
       <div id="desktopHelp" class="panel help">WASD move · Mouse aim · LMB fire · RMB ADS · R reload · P pause</div>
     </div>
 
-    <div id="mobileControls" aria-hidden="true">
+    <div id="mobileControls" class="hidden" aria-hidden="true">
       <div id="movePad" class="pad"><div id="moveStick" class="stick"></div></div>
       <div id="lookPad" class="look-pad"></div>
       <button id="fireBtn" class="round fire">FIRE</button>
       <button id="reloadBtn" class="round reload">RLD</button>
     </div>
 
-    <div id="startOverlay" class="overlay">
-      <div class="card">
-        <h1>MINI 3D BATTLE</h1>
-        <p>Survive against 5 bots while the safe zone keeps shrinking.</p>
-        <button id="startBtn">START MATCH</button>
-        <small>Desktop: click the game to lock the mouse. Mobile: left pad moves, drag right side to aim.</small>
+    <div id="startOverlay" class="lobby">
+      <div class="lobby-topbar">
+        <div class="lobby-brand">
+          <span class="brand-mark">M3D</span>
+          <div>
+            <strong>MINI 3D BATTLE</strong>
+            <small>BATTLE ROYALE</small>
+          </div>
+        </div>
+        <div class="lobby-player">
+          <div class="avatar">P1</div>
+          <div>
+            <strong>PLAYER 01</strong>
+            <small>Level 1</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="lobby-content">
+        <section class="lobby-hero">
+          <div class="season-tag">SEASON 01</div>
+          <h1>READY FOR<br />BATTLE?</h1>
+          <p>Choose a mode and enter the battlefield.</p>
+        </section>
+
+        <section class="lobby-panel">
+          <div class="mode-title">GAME MODE</div>
+
+          <div class="mode-grid">
+            <button class="mode-card active" data-mode="solo">
+              <span class="mode-icon">1</span>
+              <span class="mode-copy">
+                <strong>SOLO</strong>
+                <small>VS 5 BOTS</small>
+              </span>
+              <span class="mode-status">READY</span>
+            </button>
+
+            <button class="mode-card locked" data-mode="friend">
+              <span class="mode-icon">2</span>
+              <span class="mode-copy">
+                <strong>FRIEND</strong>
+                <small>PLAY TOGETHER</small>
+              </span>
+              <span class="mode-status">SOON</span>
+            </button>
+
+            <button class="mode-card locked" data-mode="1v1">
+              <span class="mode-icon">⚔</span>
+              <span class="mode-copy">
+                <strong>1V1</strong>
+                <small>DUEL</small>
+              </span>
+              <span class="mode-status">SOON</span>
+            </button>
+          </div>
+
+          <div class="lobby-map">
+            <div>
+              <span>MAP</span>
+              <strong>GREEN VALLEY</strong>
+            </div>
+            <div>
+              <span>PLAYERS</span>
+              <strong id="lobbyPlayers">1 + 5 BOTS</strong>
+            </div>
+          </div>
+
+          <button id="startBtn" class="play-btn">PLAY</button>
+          <div id="lobbyHint" class="lobby-hint">SOLO mode is ready.</div>
+        </section>
+      </div>
+
+      <div class="lobby-footer">
+        <span>Mini-3Dgame</span>
+        <span>Mobile + PC</span>
       </div>
     </div>
 
@@ -55,7 +125,10 @@
       <div class="card">
         <h2 id="endTitle">MATCH OVER</h2>
         <p id="endText"></p>
-        <button id="restartBtn">PLAY AGAIN</button>
+        <div class="end-actions">
+          <button id="restartBtn">PLAY AGAIN</button>
+          <button id="lobbyBtn" class="secondary-btn">LOBBY</button>
+        </div>
       </div>
     </div>
   </div>
