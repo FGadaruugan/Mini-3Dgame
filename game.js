@@ -590,13 +590,24 @@ function createPlane() {
   scene.add(plane);
 }
 
-function randomGroundPoint(margin=28) {
-  for (let attempt=0; attempt<24; attempt++) {
+function isSafeLandingSpot(x,z,radius=4.2) {
+  if (Math.abs(x)>GAME.mapHalf-radius-2 || Math.abs(z)>GAME.mapHalf-radius-2) return false;
+  return !blocked(x,z,radius);
+}
+
+function randomGroundPoint(margin=32) {
+  for (let attempt=0; attempt<80; attempt++) {
     const x=THREE.MathUtils.randFloat(-GAME.mapHalf+margin,GAME.mapHalf-margin);
     const z=THREE.MathUtils.randFloat(-GAME.mapHalf+margin,GAME.mapHalf-margin);
-    if (!blocked(x,z,1.4)) return new THREE.Vector3(x,0,z);
+    if (isSafeLandingSpot(x,z,4.2)) return new THREE.Vector3(x,0,z);
   }
-  return new THREE.Vector3(0,0,0);
+
+  const fallbacks=[
+    [0,85],[85,0],[0,-85],[-85,0],
+    [105,105],[-105,105],[105,-105],[-105,-105]
+  ];
+  const safe=fallbacks.find(([x,z])=>isSafeLandingSpot(x,z,4.2));
+  return safe ? new THREE.Vector3(safe[0],0,safe[1]) : new THREE.Vector3(0,0,0);
 }
 
 function setupBattleRoyaleFlight() {
@@ -689,14 +700,25 @@ function updateFlight(dt) {
     const dx=target.x-bot.position.x;
     const dz=target.z-bot.position.z;
     const dist=Math.hypot(dx,dz)||1;
-    const glide=bot.position.y>20 ? 20 : 10;
 
-    bot.position.x+=dx/dist*glide*dt;
-    bot.position.z+=dz/dist*glide*dt;
-    bot.position.y=Math.max(0,bot.position.y-(bot.position.y>20?11:6)*dt);
+    const glide=dist>90 ? 46 : dist>35 ? 30 : 15;
+    bot.position.x+=dx/dist*Math.min(glide*dt,dist);
+    bot.position.z+=dz/dist*Math.min(glide*dt,dist);
 
-    if (bot.position.y<=.01) {
+    const descendRate=dist>45 ? 3.2 : dist>14 ? 7 : 12;
+    bot.position.y=Math.max(0,bot.position.y-descendRate*dt);
+
+    if (bot.position.y<=.35) {
+      bot.position.x=target.x;
+      bot.position.z=target.z;
       bot.position.y=0;
+
+      if(!isSafeLandingSpot(bot.position.x,bot.position.z,2.2)){
+        const safe=randomGroundPoint(32);
+        bot.position.x=safe.x;
+        bot.position.z=safe.z;
+      }
+
       bot.userData.landed=true;
       bot.userData.target=null;
       bot.visible=true;
@@ -1398,10 +1420,22 @@ function bindInputs() {
   });
   UI.planeJumpBtn?.addEventListener('pointerdown',e=>{
     e.preventDefault();
+    e.stopPropagation();
+    jumpFromPlane();
+  });
+  UI.planeJumpBtn?.addEventListener('click',e=>{
+    e.preventDefault();
+    e.stopPropagation();
     jumpFromPlane();
   });
   UI.jumpBtn?.addEventListener('pointerdown',e=>{
     e.preventDefault();
+    e.stopPropagation();
+    openParachute();
+  });
+  UI.jumpBtn?.addEventListener('click',e=>{
+    e.preventDefault();
+    e.stopPropagation();
     openParachute();
   });
 
