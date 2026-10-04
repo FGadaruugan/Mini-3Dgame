@@ -1,0 +1,9 @@
+/*
+  Mini 3D Battle — developer GUI layout overrides.
+
+  This file is intentionally empty by default so the stable main UI is unchanged.
+  Mini 3D Studio → GUI → COPY CURRENT generates content for this file.
+
+  Player CUSTOMIZE BUTTONS remains separate and continues to use each player's
+  local settings for MOVE / FIRE / RELOAD.
+*/
