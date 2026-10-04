@@ -20,8 +20,8 @@ Run `supabase/schema.sql` on the project.
 Open `supabase-config.js`:
 
 ```js
-export const SUPABASE_URL = 'https://YOUR_PROJECT.supabase.co';
-export const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_...';
+export const SUPABASE_URL = 'https://ozbcmjcawpnbxfnkvscd.supabase.co';
+export const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_NwsEZxIt2CUhhf3SMzkhbA_-ZIoxVVm';
 ```
 
 Only use a publishable/anon key in browser code. Never commit a service-role key.
@@ -55,3 +55,16 @@ https://fgadaruugan.github.io/Mini-3Dgame/
 5. On another account, enter that ID and send a friend request.
 6. Accept the request.
 7. When both accounts are online, INVITE becomes enabled.
+
+
+## Current dedicated backend
+
+Project: `Mini-3Dgame`
+
+Project ref: `ozbcmjcawpnbxfnkvscd`
+
+Region: `ap-northeast-1`
+
+Database schema has been applied and the browser config is already connected.
+
+The remaining step for Google sign-in is configuring a Google OAuth Web Client in the Supabase Auth Google provider.
