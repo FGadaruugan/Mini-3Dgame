@@ -1219,3 +1219,219 @@ button { font:inherit; }
     display:none;
   }
 }
+
+
+/* ===== PUBG-inspired lobby bottom navigation ===== */
+.lobby-fullscreen {
+  position:absolute;
+  z-index:60;
+  right:max(14px, env(safe-area-inset-right));
+  top:max(12px, env(safe-area-inset-top));
+  width:38px;
+  height:38px;
+  display:grid;
+  place-items:center;
+  border:1px solid rgba(255,255,255,.15);
+  border-radius:10px;
+  color:#fff;
+  background:rgba(8,13,20,.56);
+  backdrop-filter:blur(10px);
+  box-shadow:0 8px 24px rgba(0,0,0,.24);
+  font-size:17px;
+  cursor:pointer;
+}
+
+.lobby-bottom-nav {
+  position:absolute;
+  z-index:55;
+  right:max(14px, env(safe-area-inset-right));
+  bottom:max(10px, env(safe-area-inset-bottom));
+  display:flex;
+  align-items:stretch;
+  justify-content:flex-end;
+  min-width:min(72vw,760px);
+  max-width:calc(100vw - 28px);
+  min-height:58px;
+  padding:5px 6px;
+  border-top:1px solid rgba(255,255,255,.16);
+  border-bottom:1px solid rgba(255,255,255,.06);
+  background:
+    linear-gradient(180deg,rgba(14,20,28,.70),rgba(5,9,14,.86));
+  box-shadow:0 -8px 28px rgba(0,0,0,.22);
+  backdrop-filter:blur(12px);
+}
+
+.lobby-nav-item {
+  position:relative;
+  flex:1 1 0;
+  min-width:94px;
+  margin:0;
+  padding:7px 10px 5px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:4px;
+  border:0;
+  border-left:1px solid rgba(255,255,255,.055);
+  border-radius:0;
+  color:rgba(255,255,255,.78);
+  background:transparent;
+  font-size:10px;
+  font-weight:900;
+  letter-spacing:.045em;
+  white-space:nowrap;
+  cursor:pointer;
+  transition:background .12s ease,color .12s ease,transform .12s ease;
+}
+
+.lobby-nav-item:first-child {
+  border-left:0;
+}
+
+.lobby-nav-item:active {
+  transform:translateY(1px) scale(.98);
+}
+
+.lobby-nav-item.active {
+  color:#fff;
+  background:linear-gradient(180deg,rgba(255,255,255,.09),rgba(241,200,75,.035));
+}
+
+.lobby-nav-item.active::after {
+  content:"";
+  position:absolute;
+  left:18%;
+  right:18%;
+  bottom:-5px;
+  height:3px;
+  border-radius:999px 999px 0 0;
+  background:#f1c84b;
+  box-shadow:0 0 12px rgba(241,200,75,.58);
+}
+
+.lobby-nav-icon {
+  display:grid;
+  place-items:center;
+  height:18px;
+  font-size:16px;
+  line-height:1;
+  opacity:.92;
+}
+
+.lobby-nav-item.active .lobby-nav-icon {
+  color:#f1c84b;
+}
+
+.lobby-tab-toast {
+  position:absolute;
+  z-index:80;
+  left:50%;
+  bottom:82px;
+  transform:translateX(-50%);
+  padding:8px 13px;
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:9px;
+  color:#fff;
+  background:rgba(5,9,14,.88);
+  box-shadow:0 10px 30px rgba(0,0,0,.32);
+  font-size:9px;
+  font-weight:900;
+  letter-spacing:.09em;
+  pointer-events:none;
+}
+
+@media (pointer:coarse) and (orientation:landscape) {
+  .lobby {
+    --bottom-nav-h:52px;
+  }
+
+  .lobby-content {
+    padding-bottom:calc(var(--bottom-nav-h) + 12px) !important;
+  }
+
+  .lobby-fullscreen {
+    top:max(8px, env(safe-area-inset-top));
+    right:max(9px, env(safe-area-inset-right));
+    width:32px;
+    height:32px;
+    border-radius:8px;
+    font-size:14px;
+  }
+
+  .lobby-bottom-nav {
+    right:max(8px, env(safe-area-inset-right));
+    bottom:max(5px, env(safe-area-inset-bottom));
+    min-width:min(73vw,690px);
+    min-height:var(--bottom-nav-h);
+    padding:3px 4px;
+    background:linear-gradient(180deg,rgba(13,19,27,.58),rgba(4,8,13,.88));
+  }
+
+  .lobby-nav-item {
+    min-width:72px;
+    padding:5px 7px 4px;
+    gap:3px;
+    font-size:8px;
+  }
+
+  .lobby-nav-icon {
+    height:15px;
+    font-size:13px;
+  }
+
+  .lobby-tab-toast {
+    bottom:64px;
+    padding:6px 10px;
+    font-size:7px;
+  }
+
+  /* Old footer is no longer used. */
+  .lobby-footer {
+    display:none !important;
+  }
+}
+
+@media (pointer:coarse) and (orientation:landscape) and (max-height:430px) {
+  .lobby {
+    --bottom-nav-h:40px;
+  }
+
+  .lobby-content {
+    padding-bottom:calc(var(--bottom-nav-h) + 5px) !important;
+  }
+
+  .lobby-bottom-nav {
+    min-height:var(--bottom-nav-h);
+    min-width:min(76vw,660px);
+    padding:2px 3px;
+  }
+
+  .lobby-nav-item {
+    min-width:60px;
+    padding:3px 5px 2px;
+    font-size:6.5px;
+    gap:1px;
+  }
+
+  .lobby-nav-icon {
+    height:12px;
+    font-size:11px;
+  }
+
+  .lobby-nav-item.active::after {
+    bottom:-3px;
+    height:2px;
+  }
+
+  .lobby-fullscreen {
+    width:28px;
+    height:28px;
+    font-size:12px;
+  }
+
+  .lobby-tab-toast {
+    bottom:49px;
+    font-size:6.5px;
+  }
+}
