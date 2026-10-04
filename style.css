@@ -3187,3 +3187,69 @@ button { font:inherit; }
     font-size:9px;
   }
 }
+
+
+/* ===== Mobile HUD refinement: less web-card, more game-lobby ===== */
+@media (pointer:coarse) and (orientation:landscape) and (max-height:800px) {
+  .mobile-lobbybar {
+    border-radius:5px;
+    border-color:rgba(255,255,255,.075);
+    border-left-color:rgba(241,200,75,.22);
+    background:
+      linear-gradient(90deg,rgba(6,11,17,.82),rgba(6,11,17,.44) 70%,rgba(6,11,17,.12));
+    box-shadow:
+      0 7px 20px rgba(0,0,0,.18),
+      inset 0 -1px 0 rgba(255,255,255,.025);
+  }
+
+  .mobile-brand-mark {
+    border-radius:6px;
+  }
+
+  .mobile-profile {
+    padding-left:7px;
+    border-left:1px solid rgba(255,255,255,.08);
+  }
+
+  .lobby-bottom-nav {
+    border-left:0;
+    border-right:0;
+    border-bottom:0;
+    border-radius:0;
+    background:
+      linear-gradient(180deg,rgba(9,14,20,.64),rgba(3,7,11,.92));
+    box-shadow:
+      0 -1px 0 rgba(255,255,255,.055),
+      0 -10px 26px rgba(0,0,0,.16);
+  }
+
+  .lobby-nav-item {
+    border-left:1px solid rgba(255,255,255,.045);
+    border-radius:0;
+    background:transparent;
+  }
+
+  .lobby-nav-item:first-child {
+    border-left:0;
+  }
+
+  .lobby-nav-item.active {
+    background:
+      linear-gradient(180deg,rgba(241,200,75,.07),rgba(241,200,75,.018));
+  }
+
+  .lobby-nav-item.active::after {
+    left:18%;
+    right:18%;
+  }
+
+  .match-language,
+  .event-banner,
+  .match-mode-card {
+    border-radius:4px;
+  }
+
+  .drawer-toggle {
+    border-radius:9px 0 0 9px;
+  }
+}
