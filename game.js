@@ -285,11 +285,16 @@ function spawnBattleRoyaleLoot() {
   clearLoot();
 
   const weaponIds=Object.keys(WEAPONS);
-  const clusters=[
-    [0,0],[-35,-28],[34,-34],[-42,32],[37,33],[5,47],[-6,-54],
-    [-150,-125],[-118,-150],[148,122],[118,150],[-150,115],[150,-130],
-    [-85,138],[88,-142]
-  ];
+  const sceneLootSpawns=activeSceneObjects
+    .filter(obj=>obj.type==='lootSpawn')
+    .map(obj=>[Number(obj.position?.[0])||0,Number(obj.position?.[2])||0]);
+  const clusters=sceneLootSpawns.length
+    ? sceneLootSpawns
+    : [
+        [0,0],[-35,-28],[34,-34],[-42,32],[37,33],[5,47],[-6,-54],
+        [-150,-125],[-118,-150],[148,122],[118,150],[-150,115],[150,-130],
+        [-85,138],[88,-142]
+      ];
 
   const clusterPoint=(index,spread=11)=>{
     const [cx,cz]=clusters[index%clusters.length];
@@ -651,14 +656,23 @@ function findSafeCarSpawn(x,z) {
 function spawnCars() {
   clearCars();
 
-  const spawns=[
-    [0,100,0],
-    [0,-115,Math.PI],
-    [100,0,Math.PI/2],
-    [-108,0,-Math.PI/2],
-    [125,-105,0],
-    [-125,100,Math.PI]
-  ];
+  const sceneCarSpawns=activeSceneObjects
+    .filter(obj=>obj.type==='carSpawn')
+    .map(obj=>[
+      Number(obj.position?.[0])||0,
+      Number(obj.position?.[2])||0,
+      Number(obj.rotation?.[1])||0
+    ]);
+  const spawns=sceneCarSpawns.length
+    ? sceneCarSpawns
+    : [
+        [0,100,0],
+        [0,-115,Math.PI],
+        [100,0,Math.PI/2],
+        [-108,0,-Math.PI/2],
+        [125,-105,0],
+        [-125,100,Math.PI]
+      ];
   const colors=[0x526b7c,0x7b5145,0x4f6652,0x77704a,0x53536f,0x6f4b55];
 
   spawns.forEach(([x,z,rot],index)=>{
@@ -1231,6 +1245,7 @@ document.addEventListener('mini3d:net-shot',event=>{
 });
 
 const STUDIO_SCENE_DRAFT_KEY='mini3d-studio-scene-v1';
+let activeSceneObjects=BASE_SCENE_OBJECTS;
 
 function loadStudioTestScene() {
   const params=new URLSearchParams(window.location.search);
@@ -1242,18 +1257,28 @@ function loadStudioTestScene() {
 
     const objects=[];
     for(const item of raw.objects.slice(0,300)){
-      if(!item || !['box','tree'].includes(item.type)) continue;
+      if(!item || !['box','tree','carSpawn','lootSpawn'].includes(item.type)) continue;
 
       const position=Array.isArray(item.position)?item.position:[0,0,0];
       const rotation=Array.isArray(item.rotation)?item.rotation:[0,0,0];
       const scale=Array.isArray(item.scale)?item.scale:[1,1,1];
       const size=Array.isArray(item.size)?item.size:[6,4,6];
-      const color=/^#[0-9a-f]{6}$/i.test(item.color||'')?item.color:(item.type==='tree'?'#2f633a':'#8390a0');
+      const color=/^#[0-9a-f]{6}$/i.test(item.color||'')
+        ? item.color
+        : item.type==='tree'
+          ? '#2f633a'
+          : item.type==='carSpawn'
+            ? '#68c7ff'
+            : item.type==='lootSpawn'
+              ? '#f0c64b'
+              : '#8390a0';
 
       const number=(value,fallback=0)=>Number.isFinite(Number(value))?Number(value):fallback;
       const clamp=(value,min,max)=>THREE.MathUtils.clamp(number(value),min,max);
 
       objects.push({
+        id:String(item.id||''),
+        name:String(item.name||item.type),
         type:item.type,
         position:[
           clamp(position[0],-GAME.mapHalf+2,GAME.mapHalf-2),
@@ -1286,6 +1311,8 @@ function loadStudioTestScene() {
 }
 
 function addStudioSceneObject(data) {
+  if(data.type==='carSpawn' || data.type==='lootSpawn') return;
+
   if(data.type==='tree'){
     const root=new THREE.Group();
 
@@ -1377,12 +1404,8 @@ function buildWorld() {
   }
 
   const studioTestScene=loadStudioTestScene();
-
-  if(studioTestScene){
-    studioTestScene.objects.forEach(addStudioSceneObject);
-  } else {
-    BASE_SCENE_OBJECTS.forEach(addStudioSceneObject);
-  }
+  activeSceneObjects=studioTestScene?.objects || BASE_SCENE_OBJECTS;
+  activeSceneObjects.forEach(addStudioSceneObject);
 
   const zonePts = [];
   for (let i=0;i<=128;i++) {
