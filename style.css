@@ -1183,3 +1183,39 @@ button { font:inherit; }
     display:none !important;
   }
 }
+
+
+.rotate-hint {
+  display:none;
+}
+
+@media (orientation:landscape) and (max-height:760px) and (pointer:coarse) {
+  .lobby-hero {
+    touch-action:none;
+    cursor:grab;
+  }
+
+  .lobby-hero:active {
+    cursor:grabbing;
+  }
+
+  .rotate-hint {
+    display:inline-flex;
+    margin-top:8px;
+    padding:4px 7px;
+    border-radius:999px;
+    border:1px solid rgba(241,200,75,.18);
+    background:rgba(241,200,75,.055);
+    color:#f3cf65;
+    font-size:6px;
+    font-weight:900;
+    letter-spacing:.12em;
+    opacity:.72;
+  }
+}
+
+@media (orientation:landscape) and (max-height:430px) and (pointer:coarse) {
+  .rotate-hint {
+    display:none;
+  }
+}
