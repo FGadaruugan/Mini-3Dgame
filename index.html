@@ -240,6 +240,85 @@
       <div id="lobbyTabToast" class="lobby-tab-toast hidden"></div>
     </div>
 
+    <div id="profileOverlay" class="profile-overlay hidden">
+      <div class="profile-shell">
+        <div class="profile-header">
+          <div>
+            <small>SOCIAL</small>
+            <strong>PROFILE & FRIENDS</strong>
+          </div>
+          <button id="profileClose" class="profile-close" aria-label="Close profile">×</button>
+        </div>
+
+        <div class="profile-body">
+          <aside class="profile-card">
+            <div class="profile-avatar-wrap">
+              <img id="profileAvatar" class="profile-avatar no-image" alt="" />
+            </div>
+
+            <div class="profile-identity">
+              <small>PLAYER</small>
+              <strong id="profileName">Guest Player</strong>
+            </div>
+
+            <div class="player-id-box">
+              <span>PLAYER ID</span>
+              <strong id="profilePlayerId">--------</strong>
+              <button id="profileCopyId">COPY</button>
+            </div>
+
+            <div id="profileBackendState" class="profile-backend-state">BACKEND NOT CONNECTED</div>
+
+            <button id="profileGoogleSignIn" class="google-login">
+              <span>G</span>
+              <strong>CONTINUE WITH GOOGLE</strong>
+            </button>
+            <button id="profileSignOut" class="profile-signout hidden">SIGN OUT</button>
+          </aside>
+
+          <main class="social-panel">
+            <section class="add-friend-panel">
+              <div>
+                <small>ADD FRIEND</small>
+                <strong>Search by 8-digit Player ID</strong>
+              </div>
+              <div class="friend-id-search">
+                <input id="friendIdInput" inputmode="numeric" maxlength="8" placeholder="12345678" />
+                <button id="addFriendBtn">ADD</button>
+              </div>
+            </section>
+
+            <section class="social-section">
+              <div class="social-section-head">
+                <strong>FRIENDS</strong>
+                <small>INVITE is available while a friend is online</small>
+              </div>
+              <div id="friendsList" class="social-list"></div>
+              <div id="friendsEmpty" class="social-empty">No friends yet.</div>
+            </section>
+
+            <section class="social-section requests-section">
+              <div class="social-section-head">
+                <strong>REQUESTS</strong>
+                <small>Incoming friend requests</small>
+              </div>
+              <div id="friendRequestsList" class="social-list"></div>
+              <div id="requestsEmpty" class="social-empty">No pending requests.</div>
+            </section>
+          </main>
+        </div>
+      </div>
+    </div>
+
+    <div id="inviteToast" class="invite-toast hidden">
+      <div>
+        <small>FRIEND INVITE</small>
+        <strong id="inviteText">MATCH INVITE</strong>
+      </div>
+      <button id="inviteReject" class="invite-reject">×</button>
+      <button id="inviteAccept" class="invite-accept">JOIN</button>
+    </div>
+
     <div id="settingsOverlay" class="settings-overlay hidden">
       <div class="settings-shell">
         <div class="settings-header">
@@ -359,5 +438,6 @@
   </div>
 
   <script type="module" src="./game.js?v=20261004-settings1"></script>
+  <script type="module" src="./profile.js?v=20261004-social1"></script>
 </body>
 </html>
