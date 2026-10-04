@@ -14,6 +14,10 @@ let friends = [];
 let onlineUsers = new Set();
 let presenceChannel = null;
 let realtimeChannel = null;
+let matchChannel = null;
+let currentRoomCode = null;
+let matchRole = null;
+let peerProfile = null;
 
 const ui = {
   overlay: $('profileOverlay'),
@@ -292,7 +296,10 @@ async function sendInvite(friendId) {
   }
 
   const result = Array.isArray(data) ? data[0] : data;
-  setStatus('INVITE SENT · ROOM ' + (result?.room_code || ''), 'ok');
+  currentRoomCode = result?.room_code || null;
+  matchRole = 'host';
+  peerProfile = friends.find(friend => friend.id === friendId) || null;
+  setStatus('INVITE SENT · ROOM ' + (currentRoomCode || ''), 'ok');
 }
 
 function showIncomingInvite(payload) {
@@ -320,12 +327,121 @@ async function respondInvite(accept) {
 
   ui.inviteToast.classList.add('hidden');
   if (accept) {
-    setStatus('JOINED ROOM ' + (data || ''), 'ok');
-    document.dispatchEvent(new CustomEvent('mini3d:room-join', {
-      detail:{ roomCode:data }
-    }));
+    currentRoomCode = data || '';
+    matchRole = 'guest';
+    setStatus('JOINING ROOM ' + currentRoomCode, 'ok');
+    await joinMatchRoom(currentRoomCode, 'guest');
   }
 }
+
+async function joinMatchRoom(roomCode, role) {
+  if (!supabase || !session || !profile || !roomCode) return;
+
+  currentRoomCode = String(roomCode);
+  matchRole = role || matchRole || 'guest';
+
+  if (matchChannel) {
+    await supabase.removeChannel(matchChannel);
+    matchChannel = null;
+  }
+
+  matchChannel = supabase.channel('mini3d-match-' + currentRoomCode, {
+    config:{
+      broadcast:{ self:false, ack:false },
+      presence:{ key:session.user.id }
+    }
+  });
+
+  matchChannel
+    .on('broadcast',{ event:'game-state' },({ payload })=>{
+      if (!payload || payload.userId === session.user.id) return;
+      document.dispatchEvent(new CustomEvent('mini3d:net-state',{ detail:payload }));
+    })
+    .on('broadcast',{ event:'shot' },({ payload })=>{
+      if (!payload || payload.userId === session.user.id) return;
+      document.dispatchEvent(new CustomEvent('mini3d:net-shot',{ detail:payload }));
+    })
+    .on('broadcast',{ event:'damage' },({ payload })=>{
+      if (!payload || payload.targetUserId !== session.user.id) return;
+      document.dispatchEvent(new CustomEvent('mini3d:net-damage',{ detail:payload }));
+    })
+    .on('presence',{ event:'sync' },()=>{
+      const state=matchChannel.presenceState();
+      const players=Object.values(state).flat();
+      document.dispatchEvent(new CustomEvent('mini3d:room-presence',{
+        detail:{ roomCode:currentRoomCode,players }
+      }));
+    })
+    .subscribe(async status=>{
+      if (status !== 'SUBSCRIBED') return;
+
+      await matchChannel.track({
+        user_id:session.user.id,
+        player_id:profile.player_id,
+        display_name:profile.display_name,
+        avatar_url:profile.avatar_url || null,
+        role:matchRole,
+        joined_at:new Date().toISOString()
+      });
+
+      setStatus('CONNECTED · ROOM ' + currentRoomCode,'ok');
+
+      document.dispatchEvent(new CustomEvent('mini3d:room-join',{
+        detail:{
+          roomCode:currentRoomCode,
+          role:matchRole,
+          userId:session.user.id,
+          profile:{
+            playerId:profile.player_id,
+            displayName:profile.display_name,
+            avatarUrl:profile.avatar_url || null
+          },
+          peer:peerProfile
+        }
+      }));
+    });
+}
+
+window.Mini3DNet = {
+  sendState(payload) {
+    if (!matchChannel || !currentRoomCode || !session) return;
+    matchChannel.send({
+      type:'broadcast',
+      event:'game-state',
+      payload:{ ...payload,userId:session.user.id,roomCode:currentRoomCode }
+    });
+  },
+
+  sendShot(payload) {
+    if (!matchChannel || !currentRoomCode || !session) return;
+    matchChannel.send({
+      type:'broadcast',
+      event:'shot',
+      payload:{ ...payload,userId:session.user.id,roomCode:currentRoomCode }
+    });
+  },
+
+  sendDamage(targetUserId,amount) {
+    if (!matchChannel || !currentRoomCode || !session || !targetUserId) return;
+    matchChannel.send({
+      type:'broadcast',
+      event:'damage',
+      payload:{
+        userId:session.user.id,
+        targetUserId,
+        amount,
+        roomCode:currentRoomCode
+      }
+    });
+  },
+
+  leave:async function() {
+    if (matchChannel && supabase) await supabase.removeChannel(matchChannel);
+    matchChannel=null;
+    currentRoomCode=null;
+    matchRole=null;
+  }
+};
 
 function subscribeRealtime() {
   if (!supabase || !session || !profile) return;
@@ -377,7 +493,10 @@ function subscribeRealtime() {
       filter:'sender_id=eq.' + session.user.id
     },payload=>{
       if (payload.new?.status === 'accepted') {
-        setStatus('INVITE ACCEPTED · ROOM ' + payload.new.room_code, 'ok');
+        currentRoomCode = payload.new.room_code;
+        matchRole = 'host';
+        setStatus('FRIEND JOINED · ROOM ' + currentRoomCode, 'ok');
+        joinMatchRoom(currentRoomCode,'host');
       }
     })
     .subscribe();
@@ -396,6 +515,10 @@ async function handleSession(nextSession) {
     ui.emptyRequests?.classList.remove('hidden');
     presenceChannel?.unsubscribe();
     realtimeChannel?.unsubscribe();
+    if (matchChannel && supabase) supabase.removeChannel(matchChannel);
+    matchChannel=null;
+    currentRoomCode=null;
+    matchRole=null;
     setStatus(configured ? 'NOT SIGNED IN' : 'BACKEND NOT CONNECTED');
     return;
   }
