@@ -3306,3 +3306,74 @@ button { font:inherit; }
     max-width:262px;
   }
 }
+
+
+/* ===== HARD mobile left-bottom placement fix ===== */
+@media (pointer:coarse) and (orientation:landscape) {
+  .battle-left-panel {
+    position:absolute !important;
+    inset:auto !important;
+    left:max(8px, env(safe-area-inset-left)) !important;
+    bottom:calc(max(6px, env(safe-area-inset-bottom)) + 46px) !important;
+    width:clamp(220px, 28vw, 286px) !important;
+    height:calc(100% - 58px - 52px) !important;
+    display:block !important;
+    margin:0 !important;
+    padding:0 !important;
+    transform:none !important;
+  }
+
+  .left-shortcuts {
+    position:absolute !important;
+    left:0 !important;
+    top:0 !important;
+    width:38px !important;
+    margin:0 !important;
+    padding:0 !important;
+  }
+
+  .match-stack {
+    position:absolute !important;
+    left:0 !important;
+    right:auto !important;
+    bottom:0 !important;
+    width:clamp(220px, 28vw, 286px) !important;
+    max-width:none !important;
+    margin:0 !important;
+    padding:0 !important;
+    transform:none !important;
+  }
+
+  .match-language,
+  .event-banner,
+  .match-mode-card,
+  .mobile-start-btn {
+    box-sizing:border-box !important;
+    width:100% !important;
+    max-width:none !important;
+    margin-left:0 !important;
+    margin-right:0 !important;
+  }
+
+  .lobby-bottom-nav {
+    left:auto !important;
+    right:max(36px,env(safe-area-inset-right)) !important;
+  }
+}
+
+@media (pointer:coarse) and (orientation:landscape) and (max-height:520px) {
+  .battle-left-panel {
+    left:max(6px, env(safe-area-inset-left)) !important;
+    bottom:calc(max(4px, env(safe-area-inset-bottom)) + 40px) !important;
+    width:clamp(205px, 29vw, 258px) !important;
+    height:calc(100% - 48px - 44px) !important;
+  }
+
+  .match-stack {
+    width:clamp(205px, 29vw, 258px) !important;
+  }
+
+  .left-shortcuts {
+    width:34px !important;
+  }
+}
