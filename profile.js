@@ -18,7 +18,6 @@ let matchChannel = null;
 let currentRoomCode = null;
 let matchRole = null;
 let peerProfile = null;
-let studioRole = 'player';
 
 const ui = {
   overlay: $('profileOverlay'),
@@ -40,8 +39,7 @@ const ui = {
   inviteText: $('inviteText'),
   inviteAccept: $('inviteAccept'),
   inviteReject: $('inviteReject'),
-  friendsCount: document.querySelector('[data-shortcut="friends"] small'),
-  studioBtn: $('studioBtn')
+  friendsCount: document.querySelector('[data-shortcut="friends"] small')
 };
 
 function openProfile() {
@@ -152,37 +150,6 @@ async function refreshProfile() {
   renderProfile();
 }
 
-function renderStudioAccess() {
-  const allowed = ['owner','developer','builder','tester'].includes(studioRole);
-  ui.studioBtn?.classList.toggle('hidden', !allowed);
-  if (ui.studioBtn) {
-    ui.studioBtn.dataset.studioRole = studioRole;
-    const copy = ui.studioBtn.querySelector('small');
-    if (copy) copy.textContent = allowed
-      ? studioRole.toUpperCase() + ' · Private developer workspace'
-      : 'Private developer workspace';
-  }
-}
-
-async function refreshStudioAccess() {
-  studioRole = 'player';
-
-  if (!supabase || !session) {
-    renderStudioAccess();
-    return;
-  }
-
-  const { data, error } = await supabase.rpc('get_studio_access');
-  if (error) {
-    renderStudioAccess();
-    return;
-  }
-
-  const access = Array.isArray(data) ? data[0] : data;
-  studioRole = access?.role || 'player';
-  renderStudioAccess();
-}
-
 async function refreshFriends() {
   if (!supabase || !session) return;
 
@@ -268,7 +235,7 @@ async function refreshRequests() {
 
 async function refreshAll() {
   await refreshProfile();
-  await Promise.all([refreshFriends(), refreshRequests(), refreshStudioAccess()]);
+  await Promise.all([refreshFriends(), refreshRequests()]);
 }
 
 async function addFriend() {
@@ -541,8 +508,6 @@ async function handleSession(nextSession) {
 
   if (!session) {
     friends = [];
-    studioRole = 'player';
-    renderStudioAccess();
     onlineUsers.clear();
     renderProfile();
     renderFriends();
@@ -580,12 +545,6 @@ document.querySelectorAll('.mobile-profile,.lobby-player').forEach(el => {
 });
 
 document.querySelector('[data-shortcut="friends"]')?.addEventListener('click',openProfile);
-ui.studioBtn?.addEventListener('click', event => {
-  event.preventDefault();
-  event.stopPropagation();
-  if (!['owner','developer','builder','tester'].includes(studioRole)) return;
-  window.location.href = './studio/';
-});
 ui.close?.addEventListener('click',closeProfile);
 ui.copyId?.addEventListener('click',async()=>{
   if (!profile?.player_id) return;
