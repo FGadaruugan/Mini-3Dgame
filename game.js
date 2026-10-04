@@ -162,8 +162,14 @@ function init() {
   createLobbyStage();
   applyControlLayout();
   bindInputs();
-  resetMatch();
+  // Keep boot lightweight; the battle royale is created only after START.
+  hp=GAME.maxHp;
+  ammo=GAME.magSize;
+  reserve=120;
+  bots=[];
+  brPhase='ground';
   showLobby();
+  updateHud();
   animate();
 }
 
@@ -614,11 +620,11 @@ function makeBot(index) {
   const colors = [0x8b3944,0x355b8f,0x7d6b2f,0x5d3f7c,0x2f6f68];
   const body = new THREE.Mesh(new THREE.CapsuleGeometry(.75,1.65,4,8), new THREE.MeshStandardMaterial({ color: colors[index % colors.length] }));
   body.position.y = 1.65;
-  body.castShadow = true;
+  body.castShadow = matchMedia('(pointer:fine)').matches;
   root.add(body);
   const head = new THREE.Mesh(new THREE.SphereGeometry(.45,12,9), new THREE.MeshStandardMaterial({ color:0xc89470 }));
   head.position.y = 3.08;
-  head.castShadow = true;
+  head.castShadow = matchMedia('(pointer:fine)').matches;
   root.add(head);
   const gun = new THREE.Mesh(new THREE.BoxGeometry(.16,.16,1.25), new THREE.MeshStandardMaterial({ color:0x24272b }));
   gun.position.set(.5,2.15,-.5);
@@ -632,6 +638,9 @@ function makeBot(index) {
 }
 
 function resetMatch() {
+  if(plane){scene.remove(plane);plane=null;}
+  UI.planeJumpBtn?.classList.add('hidden');
+  UI.jumpBtn?.classList.add('hidden');
   bots.forEach(b => scene.remove(b));
   bots = [];
   tracers.forEach(t => scene.remove(t.mesh));
@@ -684,6 +693,11 @@ function showLobby() {
   started=false;
   paused=false;
   ended=false;
+  brPhase='ground';
+  playerDropped=false;
+  UI.planeJumpBtn?.classList.add('hidden');
+  UI.jumpBtn?.classList.add('hidden');
+  if(plane){scene.remove(plane);plane=null;}
   reloading=false;
   mobile.firing=false;
   keys.clear();
@@ -775,8 +789,8 @@ async function startMatch() {
     return;
   }
 
-  // Fullscreen must be requested from the PLAY user gesture on mobile.
-  await enterFullscreen();
+  // Request fullscreen from the user gesture, but never let it block match creation.
+  enterFullscreen().catch(()=>{});
 
   resetMatch();
   started=true;
@@ -1054,7 +1068,7 @@ function bindInputs() {
       selectedMode=mode;
       document.querySelectorAll('.mode-card').forEach(item=>item.classList.remove('active'));
       card.classList.add('active');
-      UI.lobbyPlayers.textContent='1 + 5 BOTS';
+      UI.lobbyPlayers.textContent='1 + 29 BOTS';
       UI.lobbyHint.textContent='SOLO mode is ready.';
     });
   });
