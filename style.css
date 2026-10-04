@@ -3538,3 +3538,24 @@ button { font:inherit; }
   .backpack-panel { width:min(88vw,430px); max-height:84vh; overflow:auto; padding:13px; }
   .backpack-header strong { font-size:16px; }
 }
+
+
+/* S1.2 pickup reliability */
+#lootPrompt,
+#lootPrompt *,
+#pickupBtn,
+#pickupMobileBtn {
+  pointer-events:auto !important;
+  touch-action:manipulation;
+}
+#lootPrompt {
+  z-index:120 !important;
+}
+#pickupBtn {
+  min-width:64px;
+  min-height:40px;
+}
+#pickupMobileBtn {
+  z-index:120 !important;
+  box-shadow:0 0 0 2px rgba(241,200,75,.35), 0 8px 20px rgba(0,0,0,.35);
+}
