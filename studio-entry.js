@@ -3,21 +3,6 @@ import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './supabase-config.js';
 
 const button=document.getElementById('studioBtn');
 
-if(new URLSearchParams(location.search).get('studioTest')==='1'){
-  try{
-    const draft=JSON.parse(localStorage.getItem('mini3d-studio-gui-v1')||'null');
-    if(typeof draft?.generatedCss==='string' && draft.generatedCss.trim()){
-      const style=document.createElement('style');
-      style.id='mini3d-studio-gui-test';
-      style.textContent=draft.generatedCss;
-      document.head.appendChild(style);
-      document.documentElement.dataset.studioGuiTest='1';
-    }
-  }catch(error){
-    console.warn('Studio GUI test draft unavailable',error);
-  }
-}
-
 if(button){
   button.classList.add('hidden');
 
