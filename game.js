@@ -54,6 +54,9 @@ const BACKPACK_MAX = 12;
 let lootPickups = [];
 let nearestLoot = null;
 let lastPickupAt = 0;
+let lastAutoPickupAt = 0;
+const AUTO_PICKUP_RADIUS = 2.65;
+const MANUAL_PICKUP_RADIUS = 6.5;
 let activeWeaponSlot = 0;
 let backpackOpen = false;
 let backpackPauseRestore = false;
@@ -282,17 +285,38 @@ function spawnBattleRoyaleLoot() {
   clearLoot();
 
   const weaponIds=Object.keys(WEAPONS);
-  for(let i=0;i<20;i++){
-    spawnLootAt(randomGroundPoint(28),'weapon',{weaponId:weaponIds[i%weaponIds.length]});
+  const clusters=[
+    [0,0],[-35,-28],[34,-34],[-42,32],[37,33],[5,47],[-6,-54],
+    [-150,-125],[-118,-150],[148,122],[118,150],[-150,115],[150,-130],
+    [-85,138],[88,-142]
+  ];
+
+  const clusterPoint=(index,spread=11)=>{
+    const [cx,cz]=clusters[index%clusters.length];
+    for(let attempt=0;attempt<20;attempt++){
+      const x=cx+THREE.MathUtils.randFloat(-spread,spread);
+      const z=cz+THREE.MathUtils.randFloat(-spread,spread);
+      if(isSafeLandingSpot(x,z,1.6)) return new THREE.Vector3(x,0,z);
+    }
+    return randomGroundPoint(28);
+  };
+
+  for(let i=0;i<30;i++){
+    spawnLootAt(clusterPoint(i,13),'weapon',{weaponId:weaponIds[i%weaponIds.length]});
   }
 
-  for(let i=0;i<28;i++){
+  for(let i=0;i<42;i++){
     const ammoType=i%3===0?'9mm':'5.56';
-    spawnLootAt(randomGroundPoint(28),'ammo',{ammoType,amount:ammoType==='9mm'?35:30});
+    spawnLootAt(clusterPoint(i+3,14),'ammo',{ammoType,amount:ammoType==='9mm'?35:30});
   }
 
-  for(let i=0;i<12;i++) spawnLootAt(randomGroundPoint(28),'bandage',{amount:1});
-  for(let i=0;i<8;i++) spawnLootAt(randomGroundPoint(28),'armor',{protection:25});
+  for(let i=0;i<16;i++){
+    spawnLootAt(clusterPoint(i+7,12),'bandage',{amount:1});
+  }
+
+  for(let i=0;i<10;i++){
+    spawnLootAt(clusterPoint(i+11,12),'armor',{protection:i%4===0?40:25});
+  }
 }
 
 function describeLoot(data) {
@@ -303,16 +327,19 @@ function describeLoot(data) {
   return 'ITEM';
 }
 
-function findNearestLoot(maxDist=5.5) {
+function findNearestLoot(maxDist=MANUAL_PICKUP_RADIUS, filter=null) {
   let best=null;
   let bestDist=maxDist;
 
   for(const item of lootPickups){
     if(!item?.visible || !item.userData?.loot) continue;
+    if(filter && !filter(item.userData.loot,item)) continue;
+
     const dist=Math.hypot(
       item.position.x-player.position.x,
       item.position.z-player.position.z
     );
+
     if(dist<=bestDist){
       best=item;
       bestDist=dist;
@@ -320,6 +347,126 @@ function findNearestLoot(maxDist=5.5) {
   }
 
   return best;
+}
+
+function removeLootItem(item) {
+  if(!item) return;
+  scene.remove(item);
+  lootPickups=lootPickups.filter(x=>x!==item);
+  if(nearestLoot===item) nearestLoot=null;
+}
+
+function canAutoPickup(data) {
+  if(!data) return false;
+
+  if(data.kind==='weapon'){
+    return inventory.weapons.some(slot=>!slot);
+  }
+
+  if(data.kind==='ammo'){
+    const current=inventory.ammo[data.ammoType]||0;
+    const stackCost=current%30===0 ? 1 : 0;
+    return canAddBackpackUnits(stackCost);
+  }
+
+  if(data.kind==='bandage'){
+    return canAddBackpackUnits(1);
+  }
+
+  if(data.kind==='armor'){
+    return (data.protection||25)>inventory.armor;
+  }
+
+  return false;
+}
+
+function applyLootItem(item,{auto=false,allowWeaponSwap=false}={}) {
+  if(!item?.userData?.loot) return false;
+
+  const data=item.userData.loot;
+
+  if(data.kind==='weapon'){
+    let slotIndex=inventory.weapons.findIndex(slot=>!slot);
+
+    if(slotIndex<0){
+      if(!allowWeaponSwap) return false;
+      slotIndex=activeWeaponSlot;
+    }
+
+    const def=WEAPONS[data.weaponId];
+    if(!def) return false;
+
+    const replacing=Boolean(inventory.weapons[slotIndex]);
+
+    // A picked weapon contains one loaded magazine. Reserve ammo remains a separate loot resource.
+    inventory.weapons[slotIndex]={
+      id:data.weaponId,
+      magAmmo:def.mag
+    };
+
+    setActiveWeaponSlot(slotIndex);
+    removeLootItem(item);
+    showMessage(
+      replacing
+        ? 'SWAPPED → '+def.name
+        : (auto?'AUTO PICK · ':'PICKED ')+def.name,
+      600
+    );
+    return true;
+  }
+
+  if(data.kind==='ammo'){
+    const current=inventory.ammo[data.ammoType]||0;
+    const stackCost=current%30===0 ? 1 : 0;
+    if(!canAddBackpackUnits(stackCost)) return false;
+
+    inventory.ammo[data.ammoType]=current+(data.amount||0);
+    removeLootItem(item);
+    syncLegacyAmmo();
+    showMessage((auto?'AUTO · +':'+')+(data.amount||0)+' '+data.ammoType.toUpperCase(),420);
+    return true;
+  }
+
+  if(data.kind==='bandage'){
+    if(!canAddBackpackUnits(1)) return false;
+
+    inventory.bandage+=data.amount||1;
+    removeLootItem(item);
+    showMessage(auto?'AUTO · BANDAGE':'PICKED BANDAGE',420);
+    return true;
+  }
+
+  if(data.kind==='armor'){
+    const protection=data.protection||25;
+    if(protection<=inventory.armor){
+      if(auto) return false;
+      showMessage('ARMOR '+inventory.armor+'% IS BETTER',500);
+      return false;
+    }
+
+    inventory.armor=protection;
+    removeLootItem(item);
+    showMessage((auto?'AUTO · ':'')+'ARMOR '+inventory.armor+'%',500);
+    return true;
+  }
+
+  return false;
+}
+
+function autoPickupNearbyLoot() {
+  if(multiplayer || brPhase!=='ground' || backpackOpen || ended) return;
+
+  const now=performance.now();
+  if(now-lastAutoPickupAt<120) return;
+  lastAutoPickupAt=now;
+
+  // Pick only one item per tick to avoid swallowing an entire pile instantly.
+  const item=findNearestLoot(AUTO_PICKUP_RADIUS,(data)=>canAutoPickup(data));
+  if(!item) return;
+
+  if(applyLootItem(item,{auto:true,allowWeaponSwap:false})){
+    updateHud();
+  }
 }
 
 function updateLootInteraction() {
@@ -330,23 +477,26 @@ function updateLootInteraction() {
     return;
   }
 
-  nearestLoot=findNearestLoot(5.5);
+  autoPickupNearbyLoot();
+
+  // Manual prompt is mainly for weapon swapping when both slots are occupied,
+  // or for an item just outside the auto-pickup radius.
+  nearestLoot=findNearestLoot(MANUAL_PICKUP_RADIUS);
 
   if(nearestLoot){
-    UI.lootPromptText.textContent=describeLoot(nearestLoot.userData.loot);
+    const data=nearestLoot.userData.loot;
+    const weaponNeedsSwap=data.kind==='weapon' && inventory.weapons.every(Boolean);
+
+    UI.lootPromptText.textContent=(weaponNeedsSwap?'SWAP · ':'')+describeLoot(data);
+    if(UI.pickupBtn) UI.pickupBtn.textContent=weaponNeedsSwap?'SWAP':'PICK';
+    if(UI.pickupMobileBtn) UI.pickupMobileBtn.textContent=weaponNeedsSwap?'SWAP':'PICK';
+
     UI.lootPrompt.classList.remove('hidden');
     UI.pickupMobileBtn?.classList.remove('hidden');
   } else {
     UI.lootPrompt?.classList.add('hidden');
     UI.pickupMobileBtn?.classList.add('hidden');
   }
-}
-
-function removeLootItem(item) {
-  if(!item) return;
-  scene.remove(item);
-  lootPickups=lootPickups.filter(x=>x!==item);
-  if(nearestLoot===item) nearestLoot=null;
 }
 
 function pickupNearestLoot() {
@@ -356,7 +506,7 @@ function pickupNearestLoot() {
   if(now-lastPickupAt<180) return;
   lastPickupAt=now;
 
-  const item=findNearestLoot(5.8);
+  const item=findNearestLoot(MANUAL_PICKUP_RADIUS);
   if(!item){
     showMessage('MOVE CLOSER TO ITEM',450);
     return;
@@ -364,42 +514,14 @@ function pickupNearestLoot() {
 
   nearestLoot=item;
   const data=item.userData.loot;
-  if(!data) return;
+  const allowWeaponSwap=data?.kind==='weapon';
 
-  if(data.kind==='weapon'){
-    let slotIndex=inventory.weapons.findIndex(x=>!x);
-    if(slotIndex<0) slotIndex=activeWeaponSlot;
-
-    const old=inventory.weapons[slotIndex];
-    const def=WEAPONS[data.weaponId];
-    const reserveAmmo=inventory.ammo[def.ammoType]||0;
-    const initialLoad=Math.min(def.mag,reserveAmmo);
-    inventory.weapons[slotIndex]={id:data.weaponId,magAmmo:initialLoad};
-    inventory.ammo[def.ammoType]-=initialLoad;
-    setActiveWeaponSlot(slotIndex);
-    removeLootItem(item);
-    showMessage(old ? 'SWAPPED → '+WEAPONS[data.weaponId].name : 'PICKED '+WEAPONS[data.weaponId].name,650);
-  } else if(data.kind==='ammo'){
-    if(!canAddBackpackUnits(inventory.ammo[data.ammoType]%30===0?1:0)){
-      showMessage('BACKPACK FULL',600); return;
-    }
-    inventory.ammo[data.ammoType]+=data.amount;
-    removeLootItem(item);
-    syncLegacyAmmo();
-    showMessage('+'+data.amount+' '+data.ammoType.toUpperCase(),500);
-  } else if(data.kind==='bandage'){
-    if(!canAddBackpackUnits(1)){ showMessage('BACKPACK FULL',600); return; }
-    inventory.bandage+=data.amount||1;
-    removeLootItem(item);
-    showMessage('+ BANDAGE',500);
-  } else if(data.kind==='armor'){
-    inventory.armor=Math.max(inventory.armor,data.protection||25);
-    removeLootItem(item);
-    showMessage('ARMOR '+inventory.armor+'%',600);
+  if(applyLootItem(item,{auto:false,allowWeaponSwap})){
+    updateHud();
+    updateLootInteraction();
+  } else if(data?.kind!=='armor'){
+    showMessage('BACKPACK FULL',500);
   }
-
-  updateHud();
-  updateLootInteraction();
 }
 
 function useBandage() {
@@ -1154,6 +1276,8 @@ function resetMatch(options={}) {
   hp=GAME.maxHp;
   inventory=createEmptyInventory();
   activeWeaponSlot=0;
+  lastPickupAt=0;
+  lastAutoPickupAt=0;
   backpackOpen=false;
   UI.backpackOverlay?.classList.add('hidden');
   clearLoot();
