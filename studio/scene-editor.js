@@ -34,6 +34,7 @@ let history=[];
 let historyIndex=-1;
 let transformBefore=null;
 let lastValidation=[];
+let autosaveTimer=0;
 
 function cloneDefaults(){
   return {
@@ -454,6 +455,16 @@ function syncDataFromRoot({historyCommit=false}={}){
 function markDirty(){
   sceneDirty=true;
   validateScene();
+  clearTimeout(autosaveTimer);
+  autosaveTimer=setTimeout(()=>{
+    if(!sceneData || !canEdit) return;
+    localStorage.setItem(SCENE_DRAFT_KEY,JSON.stringify({
+      version:1,
+      name:sceneData.name||'S1 Green Valley',
+      updatedAt:new Date().toISOString(),
+      objects:sceneData.objects.map(obj=>clone(obj))
+    }));
+  },700);
   notifyState();
 }
 
