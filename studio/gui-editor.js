@@ -340,8 +340,15 @@ function moveDrag(event){
     cfg.x=round(clamp(snapVal(drag.start.x+dx),0,100-Math.max(1,cfg.w)));
     cfg.y=round(clamp(snapVal(drag.start.y+dy),0,100-Math.max(1,cfg.h)));
   }else{
-    cfg.w=round(clamp(snapVal(drag.start.w+dx),2,100-cfg.x));
-    cfg.h=round(clamp(snapVal(drag.start.h+dy),2,100-cfg.y));
+    const meta=metaById(drag.id);
+    if(meta?.playerControl){
+      const nextW=clamp(drag.start.w+dx,drag.start.w*.4,drag.start.w*2);
+      const ratio=nextW/Math.max(1,drag.start.w);
+      cfg.scale=round(clamp(drag.start.scale*ratio,40,200));
+    }else{
+      cfg.w=round(clamp(snapVal(drag.start.w+dx),2,100-cfg.x));
+      cfg.h=round(clamp(snapVal(drag.start.h+dy),2,100-cfg.y));
+    }
   }
   dirty=true;
   renderPreview();
@@ -389,6 +396,10 @@ function renderInspector(){
 
   const readonly=!canEdit;
   props.querySelectorAll('input,select,button').forEach(el=>el.disabled=readonly);
+  if(meta.playerControl){
+    $('guiPropW').disabled=true;
+    $('guiPropH').disabled=true;
+  }
 }
 
 function applyInspector(){
@@ -398,8 +409,11 @@ function applyInspector(){
 
   cfg.x=clamp($('guiPropX').value,0,100);
   cfg.y=clamp($('guiPropY').value,0,100);
-  cfg.w=clamp($('guiPropW').value,2,100);
-  cfg.h=clamp($('guiPropH').value,2,100);
+  const meta=metaById(selectedId);
+  if(!meta?.playerControl){
+    cfg.w=clamp($('guiPropW').value,2,100);
+    cfg.h=clamp($('guiPropH').value,2,100);
+  }
   cfg.opacity=clamp($('guiPropOpacity').value,10,100);
   cfg.scale=clamp($('guiPropScale').value,40,200);
   cfg.font=clamp($('guiPropFont').value,40,200);
@@ -450,7 +464,7 @@ function cssRule(meta,cfg,device){
     : '@media (pointer:fine) and (min-width: 901px)';
   return `${prefix} {
   ${meta.selector} {
-    position: absolute !important;
+    position: fixed !important;
     left: ${round(cfg.x)}% !important;
     top: ${round(cfg.y)}% !important;
     right: auto !important;
