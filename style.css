@@ -3377,3 +3377,35 @@ button { font:inherit; }
     width:34px !important;
   }
 }
+
+
+/* ===== Final mobile left-stack drop to bottom edge ===== */
+@media (pointer:coarse) and (orientation:landscape) {
+  .battle-left-panel {
+    left:max(8px,env(safe-area-inset-left)) !important;
+    top:43px !important;
+    bottom:max(5px,env(safe-area-inset-bottom)) !important;
+    height:auto !important;
+  }
+
+  .match-stack {
+    left:0 !important;
+    bottom:0 !important;
+  }
+
+  .lobby-bottom-nav {
+    right:max(36px,env(safe-area-inset-right)) !important;
+    bottom:max(4px,env(safe-area-inset-bottom)) !important;
+  }
+}
+
+@media (pointer:coarse) and (orientation:landscape) and (max-height:520px) {
+  .battle-left-panel {
+    top:37px !important;
+    bottom:max(3px,env(safe-area-inset-bottom)) !important;
+  }
+
+  .lobby-bottom-nav {
+    bottom:max(3px,env(safe-area-inset-bottom)) !important;
+  }
+}
