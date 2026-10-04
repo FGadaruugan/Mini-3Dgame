@@ -98,10 +98,23 @@ function loadSceneData(){
   try{
     const raw=JSON.parse(localStorage.getItem(SCENE_DRAFT_KEY)||'null');
     if(raw?.version===1 && Array.isArray(raw.objects)){
+      const objects=raw.objects.slice(0,500).map(normalizeObject).filter(Boolean);
+      const ids=new Set(objects.map(obj=>obj.id));
+
+      // v0.2 drafts predate semantic spawn markers. Merge only missing marker defaults.
+      for(const base of BASE_SCENE_OBJECTS){
+        if(!['carSpawn','lootSpawn'].includes(base.type) || ids.has(base.id)) continue;
+        const migrated=normalizeObject(clone(base));
+        if(migrated){
+          objects.push(migrated);
+          ids.add(migrated.id);
+        }
+      }
+
       return {
         version:1,
         name:String(raw.name||'S1 Green Valley').slice(0,60),
-        objects:raw.objects.slice(0,500).map(normalizeObject).filter(Boolean)
+        objects
       };
     }
   }catch{}
