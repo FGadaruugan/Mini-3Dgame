@@ -40,6 +40,13 @@ let yaw = Math.PI, pitch = -0.18, bodyYaw = 0, aiming = false;
 let hp = GAME.maxHp, ammo = GAME.magSize, reserve = 120, kills = 0, reloading = false;
 let lastShot = 0, elapsed = 0, spawnProtection = 0, lobbyTime = 0, lobbyCharacterYaw = -.28;
 let bots = [], colliders = [], tracers = [];
+let multiplayer = false;
+let multiplayerRoom = null;
+let multiplayerRole = null;
+let remotePlayer = null;
+let remoteUserId = null;
+let remoteTarget = { x:0, y:0, z:0, yaw:0, hp:100 };
+let lastNetStateSent = 0;
 const keys = new Set();
 const raycaster = new THREE.Raycaster();
 const tmpV = new THREE.Vector3();
@@ -156,6 +163,162 @@ function init() {
   showLobby();
   animate();
 }
+
+function createRemotePlayer() {
+  if (remotePlayer) {
+    scene.remove(remotePlayer);
+    remotePlayer = null;
+  }
+
+  const group = new THREE.Group();
+  const enemyMat = new THREE.MeshStandardMaterial({ color:0xb84040, roughness:.62 });
+  const darkMat = new THREE.MeshStandardMaterial({ color:0x222a34, roughness:.58 });
+  const skinMat = new THREE.MeshStandardMaterial({ color:0xc99372, roughness:.72 });
+
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(.92,1.35,.55),enemyMat);
+  torso.position.y=1.72;
+  torso.castShadow=true;
+  group.add(torso);
+
+  const head = new THREE.Mesh(new THREE.SphereGeometry(.38,12,10),skinMat);
+  head.position.y=2.72;
+  head.castShadow=true;
+  group.add(head);
+
+  const leg1 = new THREE.Mesh(new THREE.BoxGeometry(.28,.9,.32),darkMat);
+  leg1.position.set(-.23,.62,0);
+  leg1.castShadow=true;
+  group.add(leg1);
+
+  const leg2=leg1.clone();
+  leg2.position.x=.23;
+  group.add(leg2);
+
+  group.userData.remote=true;
+  group.userData.hp=100;
+  group.userData.userId=null;
+  group.visible=false;
+  scene.add(group);
+  remotePlayer=group;
+}
+
+function startMultiplayerMatch(detail) {
+  multiplayer=true;
+  multiplayerRoom=detail.roomCode;
+  multiplayerRole=detail.role;
+  remoteUserId=null;
+  remoteTarget={x:0,y:0,z:0,yaw:0,hp:100};
+
+  resetMatch();
+  bots.forEach(bot=>bot.visible=false);
+  bots=[];
+
+  hp=GAME.maxHp;
+  kills=0;
+  elapsed=0;
+  spawnProtection=2;
+
+  if (detail.role==='host') {
+    player.position.set(0,0,58);
+    yaw=Math.PI;
+  } else {
+    player.position.set(0,0,-58);
+    yaw=0;
+  }
+
+  bodyYaw=wrapAngle(yaw+Math.PI);
+  player.rotation.y=bodyYaw;
+
+  createRemotePlayer();
+
+  started=true;
+  paused=false;
+  ended=false;
+  UI.startOverlay.classList.add('hidden');
+  document.getElementById('profileOverlay')?.classList.add('hidden');
+  UI.endOverlay.classList.add('hidden');
+  setGameUiVisible(true);
+  UI.zoneInfo.textContent='1V1 · ROOM ' + multiplayerRoom;
+  showMessage('1V1 · CONNECTING OPPONENT',1200);
+  clock.getDelta();
+}
+
+function updateRemotePlayer(dt) {
+  if (!multiplayer || !remotePlayer || !remotePlayer.visible) return;
+  const t=1-Math.exp(-14*dt);
+  remotePlayer.position.x=THREE.MathUtils.lerp(remotePlayer.position.x,remoteTarget.x,t);
+  remotePlayer.position.y=THREE.MathUtils.lerp(remotePlayer.position.y,remoteTarget.y,t);
+  remotePlayer.position.z=THREE.MathUtils.lerp(remotePlayer.position.z,remoteTarget.z,t);
+  remotePlayer.rotation.y=lerpAngle(remotePlayer.rotation.y,remoteTarget.yaw,t);
+}
+
+function sendMultiplayerState() {
+  if (!multiplayer || !window.Mini3DNet) return;
+  const now=performance.now();
+  if (now-lastNetStateSent<50) return;
+  lastNetStateSent=now;
+  window.Mini3DNet.sendState({
+    x:player.position.x,
+    y:player.position.y,
+    z:player.position.z,
+    yaw:player.rotation.y,
+    hp,
+    alive:hp>0
+  });
+}
+
+document.addEventListener('mini3d:room-join',event=>{
+  startMultiplayerMatch(event.detail);
+});
+
+document.addEventListener('mini3d:room-presence',event=>{
+  if (!multiplayer || event.detail.roomCode!==multiplayerRoom) return;
+  const other=(event.detail.players || []).find(p=>p.user_id && p.user_id!==remoteUserId);
+  if (other && other.user_id) {
+    remoteUserId=other.user_id;
+    if (remotePlayer) {
+      remotePlayer.userData.userId=remoteUserId;
+      remotePlayer.visible=true;
+    }
+    showMessage('OPPONENT CONNECTED',900);
+  }
+});
+
+document.addEventListener('mini3d:net-state',event=>{
+  if (!multiplayer || event.detail.roomCode!==multiplayerRoom) return;
+  remoteUserId=event.detail.userId || remoteUserId;
+  remoteTarget={
+    x:Number(event.detail.x)||0,
+    y:Number(event.detail.y)||0,
+    z:Number(event.detail.z)||0,
+    yaw:Number(event.detail.yaw)||0,
+    hp:Number(event.detail.hp ?? 100)
+  };
+  if (remotePlayer) {
+    remotePlayer.userData.userId=remoteUserId;
+    remotePlayer.userData.hp=remoteTarget.hp;
+    remotePlayer.visible=event.detail.alive!==false;
+  }
+});
+
+document.addEventListener('mini3d:net-damage',event=>{
+  if (!multiplayer || ended) return;
+  const amount=THREE.MathUtils.clamp(Number(event.detail.amount)||0,0,100);
+  if (amount<=0) return;
+  hp=Math.max(0,hp-amount);
+  updateHud();
+  showHitmarker();
+  if (hp<=0) {
+    endMatch(false);
+  }
+});
+
+document.addEventListener('mini3d:net-shot',event=>{
+  if (!multiplayer || event.detail.roomCode!==multiplayerRoom) return;
+  const a=new THREE.Vector3(event.detail.ox||0,event.detail.oy||0,event.detail.oz||0);
+  const b=new THREE.Vector3(event.detail.ex||0,event.detail.ey||0,event.detail.ez||0);
+  spawnTracer(a,b,0xff775c);
+});
 
 function buildWorld() {
   const hemi = new THREE.HemisphereLight(0xdcecff, 0x40552d, 2.2);
@@ -441,6 +604,15 @@ function setGameUiVisible(visible) {
 }
 
 function showLobby() {
+  if (multiplayer) window.Mini3DNet?.leave?.();
+  multiplayer=false;
+  multiplayerRoom=null;
+  multiplayerRole=null;
+  remoteUserId=null;
+  if (remotePlayer) {
+    scene.remove(remotePlayer);
+    remotePlayer=null;
+  }
   document.exitPointerLock?.();
   document.getElementById('lobbyDrawer')?.classList.remove('open');
   document.getElementById('drawerBackdrop')?.classList.remove('open');
@@ -1035,23 +1207,48 @@ function shoot() {
   raycaster.set(origin,dir);
   raycaster.far=140;
   const liveMeshes=[];
-  bots.forEach(b=>{
-    if(b.userData.alive) b.children.forEach(c=>{
-      c.userData.bot=b;
+  if (multiplayer && remotePlayer?.visible) {
+    remotePlayer.children.forEach(c=>{
+      c.userData.remotePlayer=remotePlayer;
       liveMeshes.push(c);
     });
-  });
+  } else {
+    bots.forEach(b=>{
+      if(b.userData.alive) b.children.forEach(c=>{
+        c.userData.bot=b;
+        liveMeshes.push(c);
+      });
+    });
+  }
+
   const hits=raycaster.intersectObjects(liveMeshes,false);
   let end=origin.clone().addScaledVector(dir,80);
+
   if(hits.length){
     const hit=hits[0];
     end=hit.point.clone();
-    const bot=hit.object.userData.bot;
-    const headshot=hit.object===bot.children[1];
-    damageBot(bot, headshot ? GAME.bulletDamage*1.65 : GAME.bulletDamage);
-    showHitmarker();
+
+    if (multiplayer && hit.object.userData.remotePlayer) {
+      const headshot=hit.object===remotePlayer.children[1];
+      const amount=headshot ? GAME.bulletDamage*1.65 : GAME.bulletDamage;
+      window.Mini3DNet?.sendDamage(remoteUserId,amount);
+      showHitmarker();
+    } else {
+      const bot=hit.object.userData.bot;
+      const headshot=hit.object===bot.children[1];
+      damageBot(bot, headshot ? GAME.bulletDamage*1.65 : GAME.bulletDamage);
+      showHitmarker();
+    }
   }
+
   spawnTracer(origin,end,0xffdf76);
+
+  if (multiplayer) {
+    window.Mini3DNet?.sendShot({
+      ox:origin.x,oy:origin.y,oz:origin.z,
+      ex:end.x,ey:end.y,ez:end.z
+    });
+  }
 }
 
 function damageBot(bot, amount) {
@@ -1278,6 +1475,7 @@ function updateZone(dt) {
   UI.zoneInfo.textContent='Zone: ' + Math.round(r) + ' m';
   const pr=Math.hypot(player.position.x,player.position.z);
   if(pr>r) damagePlayer(GAME.zoneDamagePerSecond*dt);
+  if (multiplayer) UI.zoneInfo.textContent='1V1 · ROOM ' + multiplayerRoom;
   bots.forEach(b=>{
     if(b.userData.alive && Math.hypot(b.position.x,b.position.z)>r){
       b.userData.hp-=GAME.zoneDamagePerSecond*dt;
@@ -1378,7 +1576,12 @@ function animate() {
     elapsed+=dt;
     spawnProtection=Math.max(0,spawnProtection-dt);
     updatePlayer(dt);
-    updateBots(dt);
+    if (multiplayer) {
+      updateRemotePlayer(dt);
+      sendMultiplayerState();
+    } else {
+      updateBots(dt);
+    }
     updateZone(dt);
     updateTracers(dt);
     updateCamera();
