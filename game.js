@@ -460,6 +460,30 @@ function bindInputs() {
     });
   });
 
+  document.querySelectorAll('.lobby-nav-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const tab=item.dataset.lobbyTab || '';
+      document.querySelectorAll('.lobby-nav-item').forEach(x=>x.classList.remove('active'));
+      item.classList.add('active');
+
+      const labels={
+        theme:'THEME',
+        season:'S32 / SEASON',
+        workshop:'WORKSHOP',
+        cards:'CARDS',
+        inventory:'INVENTORY'
+      };
+
+      const toast=document.getElementById('lobbyTabToast');
+      if (toast) {
+        toast.textContent=(labels[tab] || tab.toUpperCase()) + ' · COMING NEXT';
+        toast.classList.remove('hidden');
+        clearTimeout(toast._hideTimer);
+        toast._hideTimer=setTimeout(()=>toast.classList.add('hidden'),900);
+      }
+    });
+  });
+
   UI.fullscreenBtn?.addEventListener('click', enterFullscreen);
   UI.startBtn.addEventListener('click', startMatch);
   UI.restartBtn.addEventListener('click', () => {
