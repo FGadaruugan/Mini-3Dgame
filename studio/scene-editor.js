@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
+import { BASE_SCENE_OBJECTS } from '../scene-data.js';
 
 export const SCENE_DRAFT_KEY='mini3d-studio-scene-v1';
 
@@ -9,42 +10,7 @@ const clamp=(value,min,max)=>Math.min(max,Math.max(min,Number(value)||0));
 const rad=value=>THREE.MathUtils.degToRad(Number(value)||0);
 const deg=value=>THREE.MathUtils.radToDeg(Number(value)||0);
 const round=value=>Math.round((Number(value)||0)*100)/100;
-
-const DEFAULT_OBJECTS=[
-  {id:'house-01',type:'box',name:'House 01',position:[-35,5,-28],rotation:[0,0,0],scale:[1,1,1],size:[18,10,22],color:'#a76d42'},
-  {id:'house-02',type:'box',name:'House 02',position:[34,4,-34],rotation:[0,0,0],scale:[1,1,1],size:[24,8,18],color:'#8390a0'},
-  {id:'house-03',type:'box',name:'House 03',position:[-42,6,32],rotation:[0,0,0],scale:[1,1,1],size:[22,12,20],color:'#b48a62'},
-  {id:'house-04',type:'box',name:'House 04',position:[37,4.5,33],rotation:[0,0,0],scale:[1,1,1],size:[16,9,26],color:'#787f8e'},
-  {id:'house-05',type:'box',name:'House 05',position:[5,3.5,47],rotation:[0,0,0],scale:[1,1,1],size:[18,7,12],color:'#8a755c'},
-  {id:'house-06',type:'box',name:'House 06',position:[-6,4.5,-54],rotation:[0,0,0],scale:[1,1,1],size:[20,9,14],color:'#6f7f91'},
-  {id:'house-07',type:'box',name:'Outer House 01',position:[-155,5,-132],rotation:[0,0,0],scale:[1,1,1],size:[28,10,34],color:'#8f6747'},
-  {id:'house-08',type:'box',name:'Outer House 02',position:[-118,4,-158],rotation:[0,0,0],scale:[1,1,1],size:[22,8,24],color:'#75879a'},
-  {id:'house-09',type:'box',name:'Outer House 03',position:[150,6,130],rotation:[0,0,0],scale:[1,1,1],size:[34,12,28],color:'#8d7a65'},
-  {id:'house-10',type:'box',name:'Outer House 04',position:[120,4.5,160],rotation:[0,0,0],scale:[1,1,1],size:[20,9,32],color:'#6f8092'},
-  {id:'house-11',type:'box',name:'Outer House 05',position:[-158,5.5,122],rotation:[0,0,0],scale:[1,1,1],size:[30,11,22],color:'#a17a55'},
-  {id:'house-12',type:'box',name:'Outer House 06',position:[158,4.5,-138],rotation:[0,0,0],scale:[1,1,1],size:[24,9,30],color:'#7a8490'},
-  {id:'house-13',type:'box',name:'Outer House 07',position:[-88,4,145],rotation:[0,0,0],scale:[1,1,1],size:[18,8,20],color:'#8d7359'},
-  {id:'house-14',type:'box',name:'Outer House 08',position:[92,4,-150],rotation:[0,0,0],scale:[1,1,1],size:[20,8,18],color:'#72879a'},
-
-  {id:'wall-01',type:'box',name:'Wall 01',position:[-18,1.5,-8],rotation:[0,0,0],scale:[1,1,1],size:[18,3,2],color:'#8c8b86'},
-  {id:'wall-02',type:'box',name:'Wall 02',position:[21,1.5,13],rotation:[0,0,0],scale:[1,1,1],size:[20,3,2],color:'#8c8b86'},
-  {id:'wall-03',type:'box',name:'Wall 03',position:[-7,1.5,23],rotation:[0,0,0],scale:[1,1,1],size:[2,3,18],color:'#8c8b86'},
-  {id:'wall-04',type:'box',name:'Wall 04',position:[53,1.5,-2],rotation:[0,0,0],scale:[1,1,1],size:[2,3,22],color:'#8c8b86'},
-  {id:'wall-05',type:'box',name:'Wall 05',position:[-56,1.5,-1],rotation:[0,0,0],scale:[1,1,1],size:[2,3,22],color:'#8c8b86'},
-
-  ...[
-    [-70,-63],[-64,55],[-52,63],[-28,61],[-18,-69],[15,-67],[31,63],[59,57],
-    [68,20],[65,-54],[49,-66],[-69,18],[-25,12],[25,-13],[51,14],[-48,-12]
-  ].map(([x,z],index)=>({
-    id:'tree-'+String(index+1).padStart(2,'0'),
-    type:'tree',
-    name:'Tree '+String(index+1).padStart(2,'0'),
-    position:[x,0,z],
-    rotation:[0,0,0],
-    scale:[1,1,1],
-    color:'#2f633a'
-  }))
-];
+const clone=value=>JSON.parse(JSON.stringify(value));
 
 let renderer=null;
 let scene=null;
@@ -63,12 +29,17 @@ let sceneDirty=false;
 let active=false;
 let logFn=()=>{};
 let stateFn=()=>{};
+let searchText='';
+let history=[];
+let historyIndex=-1;
+let transformBefore=null;
+let lastValidation=[];
 
 function cloneDefaults(){
   return {
     version:1,
     name:'S1 Green Valley',
-    objects:DEFAULT_OBJECTS.map(obj=>structuredClone(obj))
+    objects:BASE_SCENE_OBJECTS.map(obj=>normalizeObject(clone(obj))).filter(Boolean)
   };
 }
 
@@ -108,7 +79,9 @@ function normalizeObject(raw,index=0){
         clamp(size[2]||6,.5,100)
       ]
     }:{}),
-    color
+    color,
+    editorHidden:Boolean(raw.editorHidden),
+    editorLocked:Boolean(raw.editorLocked)
   };
 }
 
@@ -116,11 +89,10 @@ function loadSceneData(){
   try{
     const raw=JSON.parse(localStorage.getItem(SCENE_DRAFT_KEY)||'null');
     if(raw?.version===1 && Array.isArray(raw.objects)){
-      const objects=raw.objects.slice(0,300).map(normalizeObject).filter(Boolean);
       return {
         version:1,
         name:String(raw.name||'S1 Green Valley').slice(0,60),
-        objects
+        objects:raw.objects.slice(0,500).map(normalizeObject).filter(Boolean)
       };
     }
   }catch{}
@@ -177,6 +149,8 @@ function applyTransform(root,data){
   root.position.fromArray(data.position);
   root.rotation.set(...data.rotation);
   root.scale.fromArray(data.scale);
+  root.visible=!data.editorHidden;
+  root.userData.editorLocked=Boolean(data.editorLocked);
 }
 
 function createRoot(data){
@@ -201,8 +175,10 @@ function disposeRoot(root){
   scene.remove(root);
 }
 
-function rebuildScene(){
+function rebuildScene({keepSelection=false}={}){
+  const previous=keepSelection?selectedId:null;
   transform?.detach();
+
   if(selectionBox){
     scene.remove(selectionBox);
     selectionBox.geometry?.dispose?.();
@@ -214,16 +190,18 @@ function rebuildScene(){
   roots=[];
 
   for(const data of sceneData.objects) createRoot(data);
-  selectedId=null;
+
+  selectedId=previous && sceneObjectById(previous)?previous:null;
   renderObjectList();
   renderProperties();
+  if(selectedId) selectObject(selectedId,false);
+  validateScene();
   notifyState();
 }
 
 function buildBaseWorld(){
   scene.background=new THREE.Color(0x8fb1c9);
   scene.fog=new THREE.Fog(0x8fb1c9,170,620);
-
   scene.add(new THREE.HemisphereLight(0xdcecff,0x40552d,2.3));
 
   const sun=new THREE.DirectionalLight(0xffffff,2.35);
@@ -256,24 +234,63 @@ function buildBaseWorld(){
   scene.add(grid);
 }
 
+function filteredObjects(){
+  if(!searchText) return sceneData.objects;
+  const q=searchText.toLowerCase();
+  return sceneData.objects.filter(obj=>
+    obj.name.toLowerCase().includes(q) ||
+    obj.type.toLowerCase().includes(q) ||
+    obj.id.toLowerCase().includes(q)
+  );
+}
+
 function renderObjectList(){
   const list=$('sceneObjectList');
   if(!list) return;
   list.innerHTML='';
 
-  for(const obj of sceneData.objects){
-    const button=document.createElement('button');
-    button.className='scene-object'+(obj.id===selectedId?' active':'');
-    button.dataset.sceneId=obj.id;
-    button.innerHTML=
+  for(const obj of filteredObjects()){
+    const row=document.createElement('div');
+    row.className='scene-object-row'+(obj.id===selectedId?' active':'');
+    row.dataset.sceneId=obj.id;
+
+    const select=document.createElement('button');
+    select.className='scene-object';
+    select.innerHTML=
       '<span>'+(obj.type==='tree'?'▲':'■')+'</span>'+
       '<strong>'+escapeHtml(obj.name)+'</strong>'+
       '<small>'+obj.type+'</small>';
-    button.addEventListener('click',()=>selectObject(obj.id,true));
-    list.appendChild(button);
+    select.addEventListener('click',()=>selectObject(obj.id,true));
+
+    const hide=document.createElement('button');
+    hide.className='scene-mini-btn'+(obj.editorHidden?' active':'');
+    hide.title=obj.editorHidden?'Show':'Hide';
+    hide.textContent=obj.editorHidden?'○':'●';
+    hide.disabled=!canEdit;
+    hide.addEventListener('click',event=>{
+      event.stopPropagation();
+      toggleHidden(obj.id);
+    });
+
+    const lock=document.createElement('button');
+    lock.className='scene-mini-btn'+(obj.editorLocked?' active':'');
+    lock.title=obj.editorLocked?'Unlock':'Lock';
+    lock.textContent=obj.editorLocked?'L':'U';
+    lock.disabled=!canEdit;
+    lock.addEventListener('click',event=>{
+      event.stopPropagation();
+      toggleLocked(obj.id);
+    });
+
+    row.append(select,hide,lock);
+    list.appendChild(row);
   }
 
-  if($('sceneObjectCount')) $('sceneObjectCount').textContent=String(sceneData.objects.length);
+  if($('sceneObjectCount')){
+    const total=sceneData.objects.length;
+    const visible=filteredObjects().length;
+    $('sceneObjectCount').textContent=searchText?(visible+'/'+total):String(total);
+  }
 }
 
 function escapeHtml(value){
@@ -293,7 +310,7 @@ function setSelectionBox(root){
   }
   selectionBox=null;
 
-  if(!root) return;
+  if(!root || !root.visible) return;
   selectionBox=new THREE.BoxHelper(root,0xf0c64b);
   selectionBox.material.depthTest=false;
   selectionBox.material.transparent=true;
@@ -303,7 +320,9 @@ function setSelectionBox(root){
 
 function selectObject(id,focus=false){
   const root=rootById(id);
-  if(!root){
+  const data=sceneObjectById(id);
+
+  if(!root || !data){
     selectedId=null;
     transform?.detach();
     setSelectionBox(null);
@@ -313,11 +332,13 @@ function selectObject(id,focus=false){
   }
 
   selectedId=id;
-  transform?.attach(root);
+  if(canEdit && !data.editorLocked && !data.editorHidden) transform?.attach(root);
+  else transform?.detach();
+
   setSelectionBox(root);
   renderObjectList();
   renderProperties();
-  if(focus) focusSelected();
+  if(focus && root.visible) focusSelected();
 }
 
 function renderProperties(){
@@ -331,17 +352,17 @@ function renderProperties(){
     return;
   }
 
-  $('selectedType').textContent=data.type.toUpperCase();
-  $('propName').value=data.name;
+  $('selectedType').textContent=data.type.toUpperCase()+
+    (data.editorLocked?' · LOCKED':'')+
+    (data.editorHidden?' · HIDDEN':'');
 
+  $('propName').value=data.name;
   $('propPosX').value=round(data.position[0]);
   $('propPosY').value=round(data.position[1]);
   $('propPosZ').value=round(data.position[2]);
-
   $('propRotX').value=round(deg(data.rotation[0]));
   $('propRotY').value=round(deg(data.rotation[1]));
   $('propRotZ').value=round(deg(data.rotation[2]));
-
   $('propScaleX').value=round(data.scale[0]);
   $('propScaleY').value=round(data.scale[1]);
   $('propScaleZ').value=round(data.scale[2]);
@@ -355,11 +376,10 @@ function renderProperties(){
 
   $('propColor').value=data.color;
   $('propColorText').value=data.color;
-
   updateEditAvailability();
 }
 
-function syncDataFromRoot(){
+function syncDataFromRoot({historyCommit=false}={}){
   const data=sceneObjectById(selectedId);
   const root=rootById(selectedId);
   if(!data || !root) return;
@@ -371,10 +391,12 @@ function syncDataFromRoot(){
   selectionBox?.update();
   markDirty();
   renderProperties();
+  if(historyCommit) pushHistory();
 }
 
 function markDirty(){
   sceneDirty=true;
+  validateScene();
   notifyState();
 }
 
@@ -382,12 +404,59 @@ function notifyState(){
   stateFn?.({
     dirty:sceneDirty,
     count:sceneData?.objects.length||0,
-    saved:Boolean(localStorage.getItem(SCENE_DRAFT_KEY))
+    saved:Boolean(localStorage.getItem(SCENE_DRAFT_KEY)),
+    canUndo:historyIndex>0,
+    canRedo:historyIndex>=0 && historyIndex<history.length-1,
+    warnings:lastValidation.length
   });
 }
 
+function snapshot(){
+  return JSON.stringify(sceneData);
+}
+
+function pushHistory(){
+  if(!sceneData) return;
+  const snap=snapshot();
+  if(history[historyIndex]===snap) return;
+  history=history.slice(0,historyIndex+1);
+  history.push(snap);
+  if(history.length>60) history.shift();
+  historyIndex=history.length-1;
+  notifyState();
+}
+
+function restoreHistory(index){
+  if(index<0 || index>=history.length) return false;
+  try{
+    sceneData=JSON.parse(history[index]);
+    historyIndex=index;
+    sceneDirty=true;
+    rebuildScene();
+    return true;
+  }catch{
+    return false;
+  }
+}
+
+export function undoScene(){
+  if(!canEdit || historyIndex<=0) return false;
+  const ok=restoreHistory(historyIndex-1);
+  if(ok) logFn('Scene undo','ok');
+  return ok;
+}
+
+export function redoScene(){
+  if(!canEdit || historyIndex>=history.length-1) return false;
+  const ok=restoreHistory(historyIndex+1);
+  if(ok) logFn('Scene redo','ok');
+  return ok;
+}
+
 function updateEditAvailability(){
-  const editable=canEdit;
+  const data=sceneObjectById(selectedId);
+  const editable=canEdit && !data?.editorLocked;
+
   const ids=[
     'addBoxBtn','addTreeBtn','sceneMoveMode','sceneRotateMode','sceneScaleMode',
     'sceneDuplicateBtn','sceneDeleteBtn','propName',
@@ -395,29 +464,42 @@ function updateEditAvailability(){
     'propScaleX','propScaleY','propScaleZ','propSizeX','propSizeY','propSizeZ',
     'propColor','propColorText','propDuplicateBtn','propDeleteBtn','resetSceneBtn'
   ];
+
   ids.forEach(id=>{
     const el=$(id);
-    if(el) el.disabled=!editable;
+    if(!el) return;
+    if(['addBoxBtn','addTreeBtn','resetSceneBtn'].includes(id)) el.disabled=!canEdit;
+    else el.disabled=!editable;
   });
 
   if(transform){
-    transform.enabled=editable;
-    if(!editable) transform.setMode('translate');
+    transform.enabled=editable && !data?.editorHidden;
+    if(!transform.enabled) transform.detach();
   }
 }
 
 function setTransformMode(mode){
-  if(!transform || !canEdit) return;
+  const data=sceneObjectById(selectedId);
+  if(!transform || !canEdit || data?.editorLocked || data?.editorHidden) return;
+
+  const root=rootById(selectedId);
+  if(root && transform.object!==root) transform.attach(root);
   transform.setMode(mode);
+
   ['sceneMoveMode','sceneRotateMode','sceneScaleMode'].forEach(id=>$(id)?.classList.remove('active'));
   const map={translate:'sceneMoveMode',rotate:'sceneRotateMode',scale:'sceneScaleMode'};
   $(map[mode])?.classList.add('active');
   $('sceneSelectMode')?.classList.remove('active');
 }
 
+function uniqueId(prefix){
+  return (prefix+'-'+(crypto.randomUUID?.()||Date.now()+'-'+Math.random().toString(16).slice(2)))
+    .replaceAll('.','-');
+}
+
 function addObject(type){
   if(!canEdit) return;
-  const id=(crypto.randomUUID?.()||('obj-'+Date.now()+'-'+Math.random())).replaceAll('.','-');
+  const id=uniqueId(type);
   const target=orbit?.target||new THREE.Vector3();
 
   const obj=normalizeObject(type==='tree'?{
@@ -433,6 +515,7 @@ function addObject(type){
   sceneData.objects.push(obj);
   createRoot(obj);
   markDirty();
+  pushHistory();
   renderObjectList();
   selectObject(obj.id,true);
   logFn('Scene: added '+obj.name,'ok');
@@ -441,16 +524,23 @@ function addObject(type){
 function deleteSelected(){
   if(!canEdit || !selectedId) return;
   const data=sceneObjectById(selectedId);
+  if(data?.editorLocked){
+    logFn('Unlock the object before deleting it','error');
+    return;
+  }
+
   const root=rootById(selectedId);
   transform?.detach();
   if(root){
     disposeRoot(root);
     roots=roots.filter(x=>x!==root);
   }
+
   sceneData.objects=sceneData.objects.filter(obj=>obj.id!==selectedId);
   selectedId=null;
   setSelectionBox(null);
   markDirty();
+  pushHistory();
   renderObjectList();
   renderProperties();
   logFn('Scene: deleted '+(data?.name||'object'),'ok');
@@ -459,17 +549,20 @@ function deleteSelected(){
 function duplicateSelected(){
   if(!canEdit || !selectedId) return;
   const source=sceneObjectById(selectedId);
-  if(!source) return;
+  if(!source || source.editorLocked) return;
 
-  const copy=structuredClone(source);
-  copy.id=(crypto.randomUUID?.()||('obj-'+Date.now()+'-'+Math.random())).replaceAll('.','-');
+  const copy=clone(source);
+  copy.id=uniqueId(source.type);
   copy.name=(source.name+' Copy').slice(0,40);
   copy.position[0]=round(copy.position[0]+3);
   copy.position[2]=round(copy.position[2]+3);
+  copy.editorLocked=false;
+  copy.editorHidden=false;
 
   sceneData.objects.push(copy);
   createRoot(copy);
   markDirty();
+  pushHistory();
   renderObjectList();
   selectObject(copy.id,true);
   logFn('Scene: duplicated '+source.name,'ok');
@@ -491,7 +584,7 @@ function rebuildSelectedGeometry(){
 function setSelectedColor(color){
   const data=sceneObjectById(selectedId);
   const root=rootById(selectedId);
-  if(!canEdit || !data || !root || !/^#[0-9a-f]{6}$/i.test(color)) return;
+  if(!canEdit || !data || !root || data.editorLocked || !/^#[0-9a-f]{6}$/i.test(color)) return;
 
   data.color=color.toLowerCase();
   root.traverse(child=>{
@@ -501,6 +594,7 @@ function setSelectedColor(color){
       mats.forEach(mat=>mat.color?.set(data.color));
     }
   });
+
   markDirty();
   $('propColor').value=data.color;
   $('propColorText').value=data.color;
@@ -510,7 +604,7 @@ function applyPropertyInputs(){
   if(!canEdit) return;
   const data=sceneObjectById(selectedId);
   const root=rootById(selectedId);
-  if(!data || !root) return;
+  if(!data || !root || data.editorLocked) return;
 
   data.name=String($('propName').value||data.name).slice(0,40);
   root.name=data.name;
@@ -531,30 +625,27 @@ function applyPropertyInputs(){
     clamp($('propScaleZ').value,.1,20)
   );
 
+  let geometryChanged=false;
   if(data.type==='box'){
     const newSize=[
       clamp($('propSizeX').value,.5,100),
       clamp($('propSizeY').value,.5,100),
       clamp($('propSizeZ').value,.5,100)
     ];
-    const changed=newSize.some((value,index)=>Math.abs(value-data.size[index])>.0001);
+    geometryChanged=newSize.some((value,index)=>Math.abs(value-data.size[index])>.0001);
     data.size=newSize;
-    if(changed){
-      syncDataFromRoot();
-      rebuildSelectedGeometry();
-      markDirty();
-      renderObjectList();
-      return;
-    }
   }
 
   syncDataFromRoot();
+  if(geometryChanged) rebuildSelectedGeometry();
+  markDirty();
+  pushHistory();
   renderObjectList();
 }
 
 function focusSelected(){
   const root=rootById(selectedId);
-  if(!root || !camera || !orbit) return;
+  if(!root || !root.visible || !camera || !orbit) return;
 
   const box=new THREE.Box3().setFromObject(root);
   const sphere=box.getBoundingSphere(new THREE.Sphere());
@@ -577,10 +668,11 @@ function pointerSelect(event){
     ((event.clientX-rect.left)/rect.width)*2-1,
     -((event.clientY-rect.top)/rect.height)*2+1
   );
+
   const ray=new THREE.Raycaster();
   ray.setFromCamera(pointer,camera);
 
-  const hits=ray.intersectObjects(roots,true);
+  const hits=ray.intersectObjects(roots.filter(root=>root.visible),true);
   if(!hits.length){
     selectObject(null,false);
     return;
@@ -589,6 +681,88 @@ function pointerSelect(event){
   let root=hits[0].object;
   while(root && !root.userData.sceneId) root=root.parent;
   if(root?.userData.sceneId) selectObject(root.userData.sceneId,false);
+}
+
+function toggleHidden(id){
+  if(!canEdit) return;
+  const data=sceneObjectById(id);
+  const root=rootById(id);
+  if(!data || !root) return;
+
+  data.editorHidden=!data.editorHidden;
+  root.visible=!data.editorHidden;
+  if(selectedId===id){
+    transform?.detach();
+    setSelectionBox(root.visible?root:null);
+  }
+  markDirty();
+  pushHistory();
+  renderObjectList();
+  renderProperties();
+}
+
+function toggleLocked(id){
+  if(!canEdit) return;
+  const data=sceneObjectById(id);
+  if(!data) return;
+
+  data.editorLocked=!data.editorLocked;
+  rootById(id).userData.editorLocked=data.editorLocked;
+  if(selectedId===id) selectObject(id,false);
+  markDirty();
+  pushHistory();
+  renderObjectList();
+}
+
+function setSnap(){
+  if(!transform) return;
+  const translate=Number($('sceneTranslateSnap')?.value||.5);
+  const rotate=Number($('sceneRotateSnap')?.value||5);
+  const scale=Number($('sceneScaleSnap')?.value||.1);
+  transform.setTranslationSnap(translate>0?translate:null);
+  transform.setRotationSnap(rotate>0?THREE.MathUtils.degToRad(rotate):null);
+  transform.setScaleSnap(scale>0?scale:null);
+}
+
+function validateScene(){
+  const warnings=[];
+  const ids=new Set();
+
+  for(const obj of sceneData?.objects||[]){
+    if(ids.has(obj.id)) warnings.push('Duplicate object ID: '+obj.id);
+    ids.add(obj.id);
+
+    if(Math.abs(obj.position[0])>238 || Math.abs(obj.position[2])>238){
+      warnings.push(obj.name+' is outside the map');
+    }
+    if(obj.scale.some(value=>value<=0)){
+      warnings.push(obj.name+' has invalid scale');
+    }
+  }
+
+  // Fast coarse overlap check for box centers. It catches obvious accidental duplicates.
+  const boxes=(sceneData?.objects||[]).filter(obj=>obj.type==='box');
+  for(let i=0;i<boxes.length;i++){
+    for(let j=i+1;j<boxes.length;j++){
+      const a=boxes[i],b=boxes[j];
+      if(
+        Math.abs(a.position[0]-b.position[0])<.05 &&
+        Math.abs(a.position[1]-b.position[1])<.05 &&
+        Math.abs(a.position[2]-b.position[2])<.05
+      ){
+        warnings.push(a.name+' overlaps '+b.name);
+      }
+    }
+  }
+
+  lastValidation=warnings.slice(0,25);
+  const host=$('sceneValidation');
+  if(host){
+    host.innerHTML=lastValidation.length
+      ? lastValidation.map(msg=>'<div class="validation-warning">⚠ '+escapeHtml(msg)+'</div>').join('')
+      : '<div class="validation-ok">✓ No obvious scene problems</div>';
+  }
+  return lastValidation;
 }
 
 function bindPropertyEvents(){
@@ -600,19 +774,26 @@ function bindPropertyEvents(){
   ];
   propertyIds.forEach(id=>$(id)?.addEventListener('change',applyPropertyInputs));
 
-  $('propColor')?.addEventListener('input',event=>setSelectedColor(event.target.value));
+  $('propColor')?.addEventListener('change',event=>{
+    setSelectedColor(event.target.value);
+    pushHistory();
+  });
   $('propColorText')?.addEventListener('change',event=>{
     const value=String(event.target.value||'').trim();
-    if(/^#[0-9a-f]{6}$/i.test(value)) setSelectedColor(value);
-    else renderProperties();
+    if(/^#[0-9a-f]{6}$/i.test(value)){
+      setSelectedColor(value);
+      pushHistory();
+    }else{
+      renderProperties();
+    }
   });
 
   $('addBoxBtn')?.addEventListener('click',()=>addObject('box'));
   $('addTreeBtn')?.addEventListener('click',()=>addObject('tree'));
-
   $('sceneMoveMode')?.addEventListener('click',()=>setTransformMode('translate'));
   $('sceneRotateMode')?.addEventListener('click',()=>setTransformMode('rotate'));
   $('sceneScaleMode')?.addEventListener('click',()=>setTransformMode('scale'));
+
   $('sceneSelectMode')?.addEventListener('click',()=>{
     if(!transform) return;
     transform.detach();
@@ -626,12 +807,22 @@ function bindPropertyEvents(){
   $('propDuplicateBtn')?.addEventListener('click',duplicateSelected);
   $('propDeleteBtn')?.addEventListener('click',deleteSelected);
 
+  $('sceneSearch')?.addEventListener('input',event=>{
+    searchText=String(event.target.value||'').trim();
+    renderObjectList();
+  });
+
+  ['sceneTranslateSnap','sceneRotateSnap','sceneScaleSnap'].forEach(id=>$(id)?.addEventListener('change',setSnap));
+
   $('resetSceneBtn')?.addEventListener('click',()=>{
     if(!canEdit) return;
     if(!confirm('Reset Scene Draft to the original S1 map?')) return;
     localStorage.removeItem(SCENE_DRAFT_KEY);
     sceneData=cloneDefaults();
     sceneDirty=true;
+    history=[];
+    historyIndex=-1;
+    pushHistory();
     rebuildScene();
     logFn('Scene reset to original S1 map','ok');
   });
@@ -655,6 +846,44 @@ function animate(){
   selectionBox?.update();
   orbit?.update();
   renderer.render(scene,camera);
+}
+
+function cleanForExport(obj){
+  const copy=clone(obj);
+  delete copy.editorHidden;
+  delete copy.editorLocked;
+  return copy;
+}
+
+function jsValue(value,indent=0){
+  if(Array.isArray(value)){
+    if(value.length<=4 && value.every(v=>typeof v!=='object')) return '['+value.map(v=>jsValue(v)).join(',')+']';
+    const inner=' '.repeat(indent+2);
+    const pad=' '.repeat(indent);
+    return '[\n'+value.map(v=>inner+jsValue(v,indent+2)).join(',\n')+'\n'+pad+']';
+  }
+  if(value && typeof value==='object'){
+    const inner=' '.repeat(indent+2);
+    const pad=' '.repeat(indent);
+    return '{\n'+Object.entries(value).map(([k,v])=>
+      inner+( /^[A-Za-z_$][\w$]*$/.test(k)?k:JSON.stringify(k) )+':'+jsValue(v,indent+2)
+    ).join(',\n')+'\n'+pad+'}';
+  }
+  if(typeof value==='string') return JSON.stringify(value);
+  return String(value);
+}
+
+export function getGeneratedSceneModule(){
+  const objects=(sceneData?.objects||[]).map(cleanForExport);
+  return 'export const BASE_SCENE_OBJECTS = '+jsValue(objects)+';\n';
+}
+
+export function getSceneData(){
+  return clone(sceneData);
+}
+
+export function validateCurrentScene(){
+  return [...validateScene()];
 }
 
 export function initSceneEditor({role='tester',log=()=>{},onStateChange=()=>{}}={}){
@@ -698,8 +927,14 @@ export function initSceneEditor({role='tester',log=()=>{},onStateChange=()=>{}}=
 
   transform.addEventListener('dragging-changed',event=>{
     orbit.enabled=!event.value;
+    if(event.value) transformBefore=snapshot();
   });
-  transform.addEventListener('objectChange',syncDataFromRoot);
+  transform.addEventListener('objectChange',()=>syncDataFromRoot());
+  transform.addEventListener('mouseUp',()=>{
+    syncDataFromRoot();
+    if(transformBefore!==snapshot()) pushHistory();
+    transformBefore=null;
+  });
 
   buildBaseWorld();
   for(const data of sceneData.objects) createRoot(data);
@@ -712,15 +947,20 @@ export function initSceneEditor({role='tester',log=()=>{},onStateChange=()=>{}}=
   resize();
 
   initialized=true;
+  history=[];
+  historyIndex=-1;
+  pushHistory();
   renderObjectList();
   renderProperties();
   setSceneEditorRole(role);
+  validateScene();
   notifyState();
   animate();
 }
 
 export function setSceneEditorRole(role){
   canEdit=['owner','developer','builder'].includes(role);
+  renderObjectList();
   updateEditAvailability();
 }
 
@@ -733,12 +973,12 @@ export function setSceneEditorActive(value){
 }
 
 export function saveSceneDraft(){
-  if(!sceneData) return false;
+  if(!sceneData || !canEdit) return false;
   const payload={
     version:1,
     name:sceneData.name||'S1 Green Valley',
     updatedAt:new Date().toISOString(),
-    objects:sceneData.objects.map(obj=>structuredClone(obj))
+    objects:sceneData.objects.map(obj=>clone(obj))
   };
   localStorage.setItem(SCENE_DRAFT_KEY,JSON.stringify(payload));
   sceneDirty=false;
@@ -751,6 +991,9 @@ export function reloadSceneDraft(){
   if(!initialized) return;
   sceneData=loadSceneData();
   sceneDirty=false;
+  history=[];
+  historyIndex=-1;
+  pushHistory();
   rebuildScene();
   logFn('Scene reloaded','ok');
 }
@@ -759,6 +1002,9 @@ export function getSceneStatus(){
   return {
     dirty:sceneDirty,
     count:sceneData?.objects.length||0,
-    saved:Boolean(localStorage.getItem(SCENE_DRAFT_KEY))
+    saved:Boolean(localStorage.getItem(SCENE_DRAFT_KEY)),
+    canUndo:historyIndex>0,
+    canRedo:historyIndex>=0 && historyIndex<history.length-1,
+    warnings:lastValidation.length
   };
 }
