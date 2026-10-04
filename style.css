@@ -3304,6 +3304,9 @@ button { font:inherit; }
 /* ===== S1.1 Battle Royale flight controls ===== */
 .plane-jump {
   position:fixed;
+  pointer-events:auto;
+  touch-action:manipulation;
+  user-select:none;
   z-index:36;
   right:7.5vw;
   top:50%;
@@ -3341,4 +3344,17 @@ button { font:inherit; }
     bottom:104px;
     font-size:7px;
   }
+}
+
+
+/* S1 flight input priority */
+#planeJumpBtn {
+  pointer-events:auto !important;
+  touch-action:manipulation;
+  z-index:50;
+}
+#jumpBtn {
+  pointer-events:auto !important;
+  touch-action:manipulation;
+  z-index:50;
 }
