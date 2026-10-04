@@ -3358,3 +3358,183 @@ button { font:inherit; }
   touch-action:manipulation;
   z-index:50;
 }
+
+
+/* ===== S1.2 Loot / Backpack ===== */
+.weapon-slots {
+  position:fixed;
+  right:18px;
+  bottom:118px;
+  z-index:16;
+  display:flex;
+  gap:7px;
+  pointer-events:auto;
+}
+.weapon-slot {
+  width:96px;
+  min-height:44px;
+  padding:5px 8px;
+  border:1px solid rgba(255,255,255,.18);
+  border-radius:8px;
+  background:rgba(8,12,18,.76);
+  color:#fff;
+  display:grid;
+  grid-template-columns:18px 1fr;
+  align-items:center;
+  gap:4px;
+  text-align:left;
+}
+.weapon-slot span { opacity:.6; font-size:10px; }
+.weapon-slot strong { font-size:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.weapon-slot.active { border-color:#f1c84b; box-shadow:0 0 0 1px rgba(241,200,75,.24); }
+
+.backpack-btn {
+  position:fixed;
+  left:16px;
+  bottom:18px;
+  z-index:17;
+  pointer-events:auto;
+  border:1px solid rgba(255,255,255,.18);
+  border-radius:8px;
+  background:rgba(8,12,18,.76);
+  color:#fff;
+  padding:9px 12px;
+  font-size:10px;
+  font-weight:900;
+  letter-spacing:.06em;
+}
+
+.loot-prompt {
+  position:fixed;
+  left:50%;
+  bottom:92px;
+  transform:translateX(-50%);
+  z-index:55;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:8px 10px 8px 13px;
+  border-radius:10px;
+  background:rgba(8,12,18,.88);
+  border:1px solid rgba(255,255,255,.18);
+  pointer-events:auto;
+}
+.loot-prompt span { font-size:11px; font-weight:800; }
+.loot-prompt button {
+  border:0;
+  border-radius:7px;
+  padding:8px 12px;
+  background:#f1c84b;
+  color:#111;
+  font-weight:1000;
+}
+
+.pickup { width:54px; height:54px; right:96px; bottom:50px; font-size:9px; z-index:51; }
+.heal { width:50px; height:50px; right:160px; bottom:66px; font-size:9px; z-index:51; }
+
+.backpack-overlay {
+  position:fixed;
+  inset:0;
+  z-index:70;
+  display:grid;
+  place-items:center;
+  background:rgba(3,6,10,.68);
+  backdrop-filter:blur(5px);
+  pointer-events:auto;
+}
+.backpack-panel {
+  width:min(92vw,470px);
+  border:1px solid rgba(255,255,255,.16);
+  border-radius:18px;
+  background:rgba(10,15,22,.95);
+  padding:18px;
+  box-shadow:0 18px 55px rgba(0,0,0,.5);
+}
+.backpack-header {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:14px;
+}
+.backpack-header div { display:grid; gap:2px; }
+.backpack-header small { opacity:.55; font-size:9px; letter-spacing:.1em; }
+.backpack-header strong { font-size:22px; }
+#backpackClose {
+  width:38px;
+  height:38px;
+  border-radius:50%;
+  border:1px solid rgba(255,255,255,.16);
+  background:rgba(255,255,255,.06);
+  color:#fff;
+  font-size:20px;
+}
+.backpack-status {
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:8px;
+  margin-bottom:12px;
+}
+.backpack-status span,
+.backpack-ammo div {
+  padding:9px;
+  border-radius:9px;
+  background:rgba(255,255,255,.055);
+  display:grid;
+  gap:3px;
+  font-size:9px;
+  opacity:.9;
+}
+.backpack-status strong,
+.backpack-ammo strong { font-size:15px; }
+.backpack-weapons {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:9px;
+  margin-bottom:10px;
+}
+.bag-weapon {
+  min-height:72px;
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:10px;
+  background:rgba(255,255,255,.045);
+  color:#fff;
+  display:grid;
+  gap:3px;
+  padding:10px;
+  text-align:left;
+}
+.bag-weapon.active { border-color:#f1c84b; }
+.bag-weapon span,.bag-weapon small { opacity:.55; font-size:9px; }
+.bag-weapon strong { font-size:14px; }
+.backpack-ammo { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px; }
+.use-bandage {
+  width:100%;
+  border:0;
+  border-radius:9px;
+  padding:11px;
+  background:#f1c84b;
+  color:#111;
+  font-weight:1000;
+}
+
+.loot-pickup {
+  animation:lootPulse 1.5s ease-in-out infinite alternate;
+}
+@keyframes lootPulse {
+  from { transform:translateY(0); }
+  to { transform:translateY(.22rem); }
+}
+
+@media (pointer:coarse), (max-width:800px) {
+  .weapon-slots { right:9px; bottom:128px; gap:4px; }
+  .weapon-slot { width:67px; min-height:30px; padding:3px 5px; grid-template-columns:12px 1fr; }
+  .weapon-slot strong,.weapon-slot span { font-size:7px; }
+  .backpack-btn { left:auto; right:11px; top:132px; bottom:auto; padding:6px 8px; font-size:7px; }
+  .loot-prompt { bottom:22px; padding:5px 7px; }
+  .loot-prompt span { font-size:8px; }
+  .loot-prompt button { padding:6px 8px; font-size:8px; }
+  .pickup { right:92px; bottom:42px; width:44px; height:44px; font-size:7px; }
+  .heal { right:144px; bottom:52px; width:42px; height:42px; font-size:7px; }
+  .backpack-panel { width:min(88vw,430px); max-height:84vh; overflow:auto; padding:13px; }
+  .backpack-header strong { font-size:16px; }
+}
