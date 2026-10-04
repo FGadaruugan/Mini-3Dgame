@@ -38,7 +38,7 @@ let started = false, paused = false, ended = false;
 let selectedMode = 'solo';
 let yaw = Math.PI, pitch = -0.18, bodyYaw = 0, aiming = false;
 let hp = GAME.maxHp, ammo = GAME.magSize, reserve = 120, kills = 0, reloading = false;
-let lastShot = 0, elapsed = 0, spawnProtection = 0, lobbyTime = 0;
+let lastShot = 0, elapsed = 0, spawnProtection = 0, lobbyTime = 0, lobbyCharacterYaw = -.28;
 let bots = [], colliders = [], tracers = [];
 const keys = new Set();
 const raycaster = new THREE.Raycaster();
@@ -295,7 +295,8 @@ function showLobby() {
   bots.forEach(bot=>bot.visible=false);
   player.visible=true;
   player.position.set(0,.28,0);
-  bodyYaw=-.28;
+  lobbyCharacterYaw=-.28;
+  bodyYaw=lobbyCharacterYaw;
   player.rotation.y=bodyYaw;
   lobbyTime=0;
 
@@ -416,6 +417,30 @@ function bindInputs() {
     if (e.button === 2) aiming = false;
   });
   renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
+
+  const lobbyHero=document.querySelector('.lobby-hero');
+  let lobbyDragPointer=null;
+  let lobbyDragX=0;
+
+  lobbyHero?.addEventListener('pointerdown', e => {
+    if (started) return;
+    lobbyDragPointer=e.pointerId;
+    lobbyDragX=e.clientX;
+    lobbyHero.setPointerCapture?.(e.pointerId);
+  });
+
+  lobbyHero?.addEventListener('pointermove', e => {
+    if (started || lobbyDragPointer!==e.pointerId) return;
+    const dx=e.clientX-lobbyDragX;
+    lobbyDragX=e.clientX;
+    lobbyCharacterYaw=wrapAngle(lobbyCharacterYaw+dx*.012);
+  });
+
+  const stopLobbyDrag=e => {
+    if (lobbyDragPointer===e.pointerId) lobbyDragPointer=null;
+  };
+  lobbyHero?.addEventListener('pointerup',stopLobbyDrag);
+  lobbyHero?.addEventListener('pointercancel',stopLobbyDrag);
 
   document.querySelectorAll('.mode-card').forEach(card => {
     card.addEventListener('click', () => {
@@ -730,7 +755,7 @@ function updateLobby(dt) {
 
   // Subtle idle motion instead of a static model.
   player.position.y=.28+Math.sin(lobbyTime*1.7)*.025;
-  player.rotation.y=-.28+Math.sin(lobbyTime*.55)*.055;
+  player.rotation.y=lobbyCharacterYaw+Math.sin(lobbyTime*.55)*.028;
 
   if (lobbyStage) {
     const ring=lobbyStage.children[1];
