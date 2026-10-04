@@ -2033,3 +2033,210 @@ button { font:inherit; }
     transition:none !important;
   }
 }
+
+
+/* ===== Mobile lobby buttons: 1.25x smaller (80%) ===== */
+@media (pointer:coarse) and (orientation:landscape) {
+  /* Left shortcut buttons */
+  .left-shortcuts {
+    width:30px !important;
+    gap:3px !important;
+  }
+
+  .shortcut-tile {
+    width:30px !important;
+    height:30px !important;
+    padding:2px !important;
+    border-radius:5px !important;
+    font-size:9px !important;
+  }
+
+  .shortcut-tile small {
+    font-size:4.5px !important;
+  }
+
+  /* Left match controls */
+  .battle-left-panel {
+    width:clamp(174px,22.4vw,226px) !important;
+  }
+
+  .match-stack {
+    width:clamp(174px,22.4vw,226px) !important;
+    gap:3px !important;
+  }
+
+  .match-language {
+    min-height:22px !important;
+    padding:3px 6px !important;
+    gap:5px !important;
+  }
+
+  .match-language strong {
+    font-size:5.6px !important;
+  }
+
+  .event-banner {
+    min-height:31px !important;
+    padding:4px 6px !important;
+  }
+
+  .event-banner strong {
+    font-size:6.4px !important;
+  }
+
+  .event-banner small {
+    font-size:4.4px !important;
+  }
+
+  .match-mode-card {
+    min-height:32px !important;
+    padding:3px 5px !important;
+    grid-template-columns:25px 1fr auto !important;
+    gap:5px !important;
+  }
+
+  .mode-thumb {
+    height:24px !important;
+    font-size:6.4px !important;
+  }
+
+  .match-mode-card strong {
+    font-size:5.6px !important;
+  }
+
+  .match-mode-card small {
+    font-size:4.4px !important;
+  }
+
+  .mobile-start-btn {
+    min-height:37px !important;
+    padding:2px 8px !important;
+    font-size:17.6px !important;
+  }
+
+  .mobile-start-btn span:last-child {
+    font-size:21.6px !important;
+  }
+
+  /* Top right fullscreen button */
+  .lobby-fullscreen {
+    width:22px !important;
+    height:22px !important;
+    border-radius:6px !important;
+    font-size:10px !important;
+  }
+
+  /* Right drawer open/close control */
+  .drawer-toggle {
+    width:18px !important;
+    height:51px !important;
+    border-radius:7px 0 0 7px !important;
+    font-size:20px !important;
+  }
+
+  .drawer-close {
+    width:21px !important;
+    height:21px !important;
+    font-size:18px !important;
+  }
+
+  /* Drawer menu buttons */
+  .drawer-grid {
+    grid-auto-rows:minmax(27px,1fr) !important;
+  }
+
+  .drawer-item {
+    padding:3px 4px !important;
+    grid-template-columns:19px 1fr auto !important;
+    gap:4px !important;
+  }
+
+  .drawer-icon {
+    width:18px !important;
+    height:18px !important;
+    font-size:10px !important;
+  }
+
+  .drawer-item strong {
+    font-size:5.2px !important;
+  }
+
+  .drawer-item small {
+    font-size:4px !important;
+  }
+
+  .drawer-item b {
+    font-size:10px !important;
+  }
+
+  /* Bottom navigation buttons */
+  .lobby-bottom-nav {
+    width:min(48.8vw,472px) !important;
+    min-height:34px !important;
+    padding:2px !important;
+  }
+
+  .lobby-nav-item {
+    padding:2px 3px 1px !important;
+    font-size:5.2px !important;
+  }
+
+  .lobby-nav-icon {
+    height:10px !important;
+    font-size:8.4px !important;
+  }
+
+  .lobby-nav-item.active::after {
+    left:20% !important;
+    right:20% !important;
+    height:2px !important;
+  }
+}
+
+/* Extra-short phones keep the same 80% visual scale */
+@media (pointer:coarse) and (orientation:landscape) and (max-height:520px) {
+  .battle-left-panel,
+  .match-stack {
+    width:clamp(162px,23.2vw,202px) !important;
+  }
+
+  .left-shortcuts {
+    width:27px !important;
+  }
+
+  .shortcut-tile {
+    width:27px !important;
+    height:26px !important;
+  }
+
+  .match-language {
+    min-height:19px !important;
+  }
+
+  .event-banner {
+    min-height:27px !important;
+  }
+
+  .match-mode-card {
+    min-height:27px !important;
+    grid-template-columns:22px 1fr auto !important;
+  }
+
+  .mode-thumb {
+    height:21px !important;
+  }
+
+  .mobile-start-btn {
+    min-height:30px !important;
+    font-size:14.4px !important;
+  }
+
+  .mobile-start-btn span:last-child {
+    font-size:18px !important;
+  }
+
+  .lobby-bottom-nav {
+    width:min(49.6vw,440px) !important;
+    min-height:30px !important;
+  }
+}
