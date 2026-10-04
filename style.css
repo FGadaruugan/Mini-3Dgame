@@ -2889,3 +2889,301 @@ button { font:inherit; }
     right:25%;
   }
 }
+
+
+/* ===== Mobile fit pass: keep every lobby control inside the viewport ===== */
+@media (pointer:coarse) and (orientation:landscape) and (max-height:800px) {
+  .lobby {
+    --bottom-nav-h:44px;
+  }
+
+  .mobile-lobbybar {
+    left:max(7px,env(safe-area-inset-left));
+    right:48px;
+    top:max(5px,env(safe-area-inset-top));
+    min-height:31px;
+    padding:3px 6px;
+    border-radius:8px;
+  }
+
+  .mobile-brand-mark,
+  .mobile-avatar {
+    width:27px;
+    height:27px;
+    font-size:8px;
+  }
+
+  .mobile-brand strong,
+  .mobile-profile strong {
+    font-size:8px;
+  }
+
+  .mobile-brand small,
+  .mobile-profile small {
+    font-size:6px;
+  }
+
+  .battle-left-panel {
+    left:max(7px,env(safe-area-inset-left));
+    top:43px;
+    bottom:calc(max(5px,env(safe-area-inset-bottom)) + var(--bottom-nav-h) + 6px);
+    width:clamp(245px,27vw,300px);
+    gap:6px;
+  }
+
+  .left-shortcuts {
+    width:40px;
+    gap:4px;
+    padding-top:1px;
+  }
+
+  .shortcut-tile {
+    height:38px;
+    border-radius:6px;
+    font-size:11px;
+  }
+
+  .shortcut-tile small {
+    font-size:5.5px;
+  }
+
+  .match-stack {
+    width:calc(100% - 46px);
+    gap:4px;
+  }
+
+  .match-language {
+    min-height:27px;
+    padding:4px 7px;
+  }
+
+  .match-language strong {
+    font-size:7px;
+  }
+
+  .event-banner {
+    min-height:39px;
+    padding:5px 7px;
+  }
+
+  .event-banner strong {
+    font-size:8px;
+  }
+
+  .event-banner small {
+    font-size:5.5px;
+  }
+
+  .match-mode-card {
+    min-height:40px;
+    padding:4px 6px;
+    grid-template-columns:31px 1fr auto;
+    gap:6px;
+  }
+
+  .mode-thumb {
+    height:30px;
+    border-radius:5px;
+    font-size:8px;
+  }
+
+  .match-mode-card strong {
+    font-size:7px;
+  }
+
+  .match-mode-card small {
+    font-size:5.5px;
+  }
+
+  .mobile-start-btn {
+    min-height:46px;
+    padding:3px 10px;
+    border-radius:4px;
+    font-size:22px;
+  }
+
+  .mobile-start-btn span:last-child {
+    font-size:27px;
+  }
+
+  .lobby-bottom-nav {
+    left:auto;
+    right:max(36px,env(safe-area-inset-right));
+    bottom:max(4px,env(safe-area-inset-bottom));
+    width:min(61vw,600px);
+    min-width:0;
+    min-height:var(--bottom-nav-h);
+    padding:2px 3px;
+    border-radius:8px 8px 0 0;
+  }
+
+  .lobby-nav-item {
+    min-width:0;
+    padding:3px 4px 2px;
+    gap:1px;
+    font-size:6.5px;
+  }
+
+  .lobby-nav-icon {
+    height:12px;
+    font-size:10.5px;
+  }
+
+  .lobby-nav-item.active::after {
+    bottom:-2px;
+    height:2px;
+  }
+
+  .lobby-fullscreen {
+    top:max(5px,env(safe-area-inset-top));
+    right:max(6px,env(safe-area-inset-right));
+    width:28px;
+    height:28px;
+    border-radius:7px;
+    font-size:12px;
+  }
+
+  .drawer-toggle {
+    width:23px;
+    height:64px;
+    border-radius:10px 0 0 10px;
+    font-size:25px;
+  }
+
+  .drawer-toggle.open {
+    right:min(58vw,560px);
+  }
+
+  .lobby-drawer {
+    width:min(58vw,560px);
+    padding:
+      max(6px,env(safe-area-inset-top))
+      max(7px,env(safe-area-inset-right))
+      max(6px,env(safe-area-inset-bottom))
+      8px;
+  }
+
+  .drawer-head {
+    min-height:29px;
+  }
+
+  .drawer-head strong {
+    font-size:8px;
+  }
+
+  .drawer-close {
+    width:26px;
+    height:26px;
+    font-size:22px;
+  }
+
+  .drawer-grid {
+    grid-auto-rows:minmax(34px,1fr);
+  }
+
+  .drawer-item {
+    padding:4px 5px;
+    grid-template-columns:24px 1fr auto;
+    gap:5px;
+  }
+
+  .drawer-icon {
+    width:22px;
+    height:22px;
+    font-size:12px;
+  }
+
+  .drawer-item strong {
+    font-size:6.5px;
+  }
+
+  .drawer-item small {
+    font-size:5px;
+  }
+
+  .drawer-item b {
+    font-size:13px;
+  }
+
+  .lobby-character-drag {
+    left:26%;
+    right:27%;
+    top:9%;
+    bottom:11%;
+  }
+
+  .lobby-tab-toast {
+    bottom:calc(var(--bottom-nav-h) + 12px);
+    padding:5px 8px;
+    font-size:6.5px;
+  }
+}
+
+/* Very short landscape phones */
+@media (pointer:coarse) and (orientation:landscape) and (max-height:520px) {
+  .lobby {
+    --bottom-nav-h:38px;
+  }
+
+  .mobile-lobbybar {
+    min-height:28px;
+  }
+
+  .battle-left-panel {
+    top:37px;
+    bottom:calc(max(3px,env(safe-area-inset-bottom)) + var(--bottom-nav-h) + 4px);
+    width:clamp(220px,29vw,270px);
+  }
+
+  .left-shortcuts {
+    width:36px;
+  }
+
+  .shortcut-tile {
+    height:32px;
+    font-size:10px;
+  }
+
+  .match-stack {
+    width:calc(100% - 41px);
+    gap:3px;
+  }
+
+  .match-language {
+    min-height:23px;
+  }
+
+  .event-banner {
+    min-height:34px;
+  }
+
+  .match-mode-card {
+    min-height:34px;
+    grid-template-columns:27px 1fr auto;
+  }
+
+  .mode-thumb {
+    height:26px;
+  }
+
+  .mobile-start-btn {
+    min-height:38px;
+    font-size:18px;
+  }
+
+  .mobile-start-btn span:last-child {
+    font-size:23px;
+  }
+
+  .lobby-bottom-nav {
+    width:min(62vw,560px);
+  }
+
+  .lobby-nav-item {
+    font-size:5.8px;
+  }
+
+  .lobby-nav-icon {
+    font-size:9px;
+  }
+}
