@@ -43,6 +43,88 @@ let bots = [], colliders = [], tracers = [];
 const keys = new Set();
 const raycaster = new THREE.Raycaster();
 const tmpV = new THREE.Vector3();
+const SETTINGS_KEY = 'mini3d-settings-v1';
+const DEFAULT_USER_SETTINGS = {
+  sensitivity: {
+    horizontal: 100,
+    vertical: 100,
+    ads: 75,
+    firing: 85
+  },
+  controls: {
+    move:   { x: 4,  y: 66, scale: 100, opacity: 60 },
+    fire:   { x: 86, y: 72, scale: 100, opacity: 82 },
+    reload: { x: 78, y: 56, scale: 100, opacity: 76 }
+  }
+};
+
+function cloneDefaults() {
+  return JSON.parse(JSON.stringify(DEFAULT_USER_SETTINGS));
+}
+
+function loadUserSettings() {
+  const fallback = cloneDefaults();
+  try {
+    const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null');
+    if (!saved) return fallback;
+    return {
+      sensitivity: { ...fallback.sensitivity, ...(saved.sensitivity || {}) },
+      controls: {
+        move: { ...fallback.controls.move, ...(saved.controls?.move || {}) },
+        fire: { ...fallback.controls.fire, ...(saved.controls?.fire || {}) },
+        reload: { ...fallback.controls.reload, ...(saved.controls?.reload || {}) }
+      }
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+let userSettings = loadUserSettings();
+let selectedControl = 'fire';
+
+function saveUserSettings() {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(userSettings));
+}
+
+function getSensitivityFactor() {
+  if (aiming) return userSettings.sensitivity.ads / 100;
+  if (mobile.firing) return userSettings.sensitivity.firing / 100;
+  return 1;
+}
+
+function applyControlLayout() {
+  const map = {
+    move: { el: UI.movePad, base: 122 },
+    fire: { el: UI.fireBtn, base: 82 },
+    reload: { el: UI.reloadBtn, base: 58 }
+  };
+
+  for (const [name, meta] of Object.entries(map)) {
+    const cfg = userSettings.controls[name];
+    const el = meta.el;
+    if (!el || !cfg) continue;
+
+    const size = meta.base * (cfg.scale / 100);
+    el.style.left = cfg.x + '%';
+    el.style.top = cfg.y + '%';
+    el.style.right = 'auto';
+    el.style.bottom = 'auto';
+    el.style.width = size + 'px';
+    el.style.height = size + 'px';
+    el.style.opacity = String(cfg.opacity / 100);
+  }
+
+  if (UI.movePad && UI.moveStick) {
+    const padSize = 122 * (userSettings.controls.move.scale / 100);
+    const stickSize = Math.min(50, padSize * .42);
+    UI.moveStick.style.width = stickSize + 'px';
+    UI.moveStick.style.height = stickSize + 'px';
+    UI.moveStick.style.left = ((padSize - stickSize) / 2) + 'px';
+    UI.moveStick.style.top = ((padSize - stickSize) / 2) + 'px';
+  }
+}
+
 
 const mobile = {
   movePointer: null, lookPointer: null, firePointer: null,
@@ -68,6 +150,7 @@ function init() {
   buildWorld();
   createPlayer();
   createLobbyStage();
+  applyControlLayout();
   bindInputs();
   resetMatch();
   showLobby();
@@ -473,6 +556,201 @@ async function startMatch() {
   }
 }
 
+
+function openSettings(initialPage='sensitivity') {
+  document.getElementById('lobbyDrawer')?.classList.remove('open');
+  document.getElementById('drawerBackdrop')?.classList.remove('open');
+  document.getElementById('drawerToggle')?.classList.remove('open');
+  document.getElementById('settingsOverlay')?.classList.remove('hidden');
+  showSettingsPage(initialPage);
+  syncSettingsUi();
+}
+
+function closeSettings() {
+  document.getElementById('settingsOverlay')?.classList.add('hidden');
+}
+
+function showSettingsPage(page) {
+  const isSensitivity = page === 'sensitivity';
+  document.getElementById('settingsSensitivityPage')?.classList.toggle('active', isSensitivity);
+  document.getElementById('settingsControlsPage')?.classList.toggle('active', !isSensitivity);
+
+  document.querySelectorAll('.settings-nav-item').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.settingsPage === page);
+  });
+
+  if (!isSensitivity) {
+    requestAnimationFrame(renderControlPreview);
+  }
+}
+
+function syncSettingsUi() {
+  const sensitivityBindings = [
+    ['sensHorizontal', 'sensHorizontalValue', 'horizontal'],
+    ['sensVertical', 'sensVerticalValue', 'vertical'],
+    ['sensAds', 'sensAdsValue', 'ads'],
+    ['sensFiring', 'sensFiringValue', 'firing']
+  ];
+
+  sensitivityBindings.forEach(([inputId,valueId,key]) => {
+    const input=document.getElementById(inputId);
+    const value=document.getElementById(valueId);
+    if (input) input.value=userSettings.sensitivity[key];
+    if (value) value.textContent=userSettings.sensitivity[key] + '%';
+  });
+
+  syncSelectedControlEditor();
+  renderControlPreview();
+}
+
+function syncSelectedControlEditor() {
+  const cfg=userSettings.controls[selectedControl];
+  const name=document.getElementById('selectedControlName');
+  const size=document.getElementById('controlSize');
+  const sizeValue=document.getElementById('controlSizeValue');
+  const opacity=document.getElementById('controlOpacity');
+  const opacityValue=document.getElementById('controlOpacityValue');
+
+  if (name) name.textContent=selectedControl.toUpperCase();
+  if (size) size.value=cfg.scale;
+  if (sizeValue) sizeValue.textContent=cfg.scale + '%';
+  if (opacity) opacity.value=cfg.opacity;
+  if (opacityValue) opacityValue.textContent=cfg.opacity + '%';
+
+  document.querySelectorAll('.control-preview-item').forEach(item => {
+    item.classList.toggle('selected', item.dataset.control === selectedControl);
+  });
+}
+
+function renderControlPreview() {
+  const preview=document.getElementById('controlPreview');
+  if (!preview) return;
+
+  const baseSizes={move:68,fire:50,reload:42};
+
+  document.querySelectorAll('.control-preview-item').forEach(item => {
+    const name=item.dataset.control;
+    const cfg=userSettings.controls[name];
+    if (!cfg) return;
+
+    const size=baseSizes[name]*(cfg.scale/100);
+    item.style.left=cfg.x + '%';
+    item.style.top=cfg.y + '%';
+    item.style.width=size + 'px';
+    item.style.height=size + 'px';
+    item.style.opacity=String(cfg.opacity/100);
+  });
+}
+
+function bindSettingsUi() {
+  document.getElementById('settingsClose')?.addEventListener('click',closeSettings);
+
+  document.querySelectorAll('.settings-nav-item').forEach(btn => {
+    btn.addEventListener('click',()=>showSettingsPage(btn.dataset.settingsPage));
+  });
+
+  const sensitivityBindings = [
+    ['sensHorizontal', 'sensHorizontalValue', 'horizontal'],
+    ['sensVertical', 'sensVerticalValue', 'vertical'],
+    ['sensAds', 'sensAdsValue', 'ads'],
+    ['sensFiring', 'sensFiringValue', 'firing']
+  ];
+
+  sensitivityBindings.forEach(([inputId,valueId,key]) => {
+    const input=document.getElementById(inputId);
+    const value=document.getElementById(valueId);
+    input?.addEventListener('input',()=>{
+      userSettings.sensitivity[key]=Number(input.value);
+      if (value) value.textContent=input.value + '%';
+      saveUserSettings();
+    });
+  });
+
+  document.getElementById('resetSensitivity')?.addEventListener('click',()=>{
+    userSettings.sensitivity={...cloneDefaults().sensitivity};
+    saveUserSettings();
+    syncSettingsUi();
+  });
+
+  const preview=document.getElementById('controlPreview');
+  let drag=null;
+
+  document.querySelectorAll('.control-preview-item').forEach(item => {
+    item.addEventListener('pointerdown',e=>{
+      e.preventDefault();
+      selectedControl=item.dataset.control;
+      syncSelectedControlEditor();
+
+      const rect=item.getBoundingClientRect();
+      drag={
+        pointerId:e.pointerId,
+        item,
+        offsetX:e.clientX-rect.left,
+        offsetY:e.clientY-rect.top
+      };
+      item.setPointerCapture?.(e.pointerId);
+    });
+
+    item.addEventListener('pointermove',e=>{
+      if (!drag || drag.pointerId!==e.pointerId || drag.item!==item || !preview) return;
+
+      const area=preview.getBoundingClientRect();
+      const itemRect=item.getBoundingClientRect();
+
+      const maxX=Math.max(0,area.width-itemRect.width);
+      const maxY=Math.max(0,area.height-itemRect.height);
+
+      const px=Math.min(maxX,Math.max(0,e.clientX-area.left-drag.offsetX));
+      const py=Math.min(maxY,Math.max(0,e.clientY-area.top-drag.offsetY));
+
+      const cfg=userSettings.controls[selectedControl];
+      cfg.x=(px/area.width)*100;
+      cfg.y=(py/area.height)*100;
+
+      item.style.left=cfg.x + '%';
+      item.style.top=cfg.y + '%';
+    });
+
+    const stop=e=>{
+      if (drag?.pointerId===e.pointerId) drag=null;
+    };
+    item.addEventListener('pointerup',stop);
+    item.addEventListener('pointercancel',stop);
+  });
+
+  document.getElementById('controlSize')?.addEventListener('input',e=>{
+    userSettings.controls[selectedControl].scale=Number(e.target.value);
+    document.getElementById('controlSizeValue').textContent=e.target.value + '%';
+    renderControlPreview();
+  });
+
+  document.getElementById('controlOpacity')?.addEventListener('input',e=>{
+    userSettings.controls[selectedControl].opacity=Number(e.target.value);
+    document.getElementById('controlOpacityValue').textContent=e.target.value + '%';
+    renderControlPreview();
+  });
+
+  document.getElementById('resetControlLayout')?.addEventListener('click',()=>{
+    userSettings.controls=cloneDefaults().controls;
+    selectedControl='fire';
+    renderControlPreview();
+    syncSelectedControlEditor();
+  });
+
+  document.getElementById('saveControlLayout')?.addEventListener('click',()=>{
+    saveUserSettings();
+    applyControlLayout();
+
+    const toast=document.getElementById('lobbyTabToast');
+    if (toast) {
+      toast.textContent='CONTROL LAYOUT SAVED';
+      toast.classList.remove('hidden');
+      clearTimeout(toast._hideTimer);
+      toast._hideTimer=setTimeout(()=>toast.classList.add('hidden'),900);
+    }
+  });
+}
+
 function bindInputs() {
   addEventListener('resize', onResize);
   addEventListener('keydown', e => {
@@ -484,8 +762,9 @@ function bindInputs() {
   addEventListener('mousemove', e => {
     if (!started || paused || ended || document.pointerLockElement !== renderer.domElement) return;
     // Drag/move right -> look right. Move up -> look up.
-    yaw = wrapAngle(yaw - e.movementX * .0023);
-    pitch += e.movementY * .0018;
+    const sensitivityFactor=getSensitivityFactor();
+    yaw = wrapAngle(yaw - e.movementX * .0023 * (userSettings.sensitivity.horizontal/100) * sensitivityFactor);
+    pitch += e.movementY * .0018 * (userSettings.sensitivity.vertical/100) * sensitivityFactor;
     pitch = THREE.MathUtils.clamp(pitch,-.62,.34);
   });
   renderer.domElement.addEventListener('mousedown', e => {
@@ -498,6 +777,8 @@ function bindInputs() {
     if (e.button === 2) aiming = false;
   });
   renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
+
+  bindSettingsUi();
 
   const lobbyHero=document.getElementById('lobbyCharacterDrag') || document.querySelector('.lobby-hero');
   let lobbyDragPointer=null;
@@ -583,6 +864,11 @@ function bindInputs() {
 
   document.querySelectorAll('.drawer-item').forEach(item=>{
     item.addEventListener('click',()=>{
+      if (item.dataset.drawerItem==='settings') {
+        openSettings('sensitivity');
+        return;
+      }
+
       const name=item.querySelector('strong')?.textContent || 'MENU';
       const toast=document.getElementById('lobbyTabToast');
       if(toast){
@@ -691,8 +977,9 @@ function setupLookPad() {
     mobile.lookLastX=e.clientX;
     mobile.lookLastY=e.clientY;
     // PUBG-style camera drag: right -> right, up -> up.
-    yaw = wrapAngle(yaw - dx*.006);
-    pitch += dy*.0045;
+    const sensitivityFactor=getSensitivityFactor();
+    yaw = wrapAngle(yaw - dx*.006 * (userSettings.sensitivity.horizontal/100) * sensitivityFactor);
+    pitch += dy*.0045 * (userSettings.sensitivity.vertical/100) * sensitivityFactor;
     pitch = THREE.MathUtils.clamp(pitch,-.62,.34);
   });
   const end=e=>{
