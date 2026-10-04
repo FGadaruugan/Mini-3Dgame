@@ -3253,3 +3253,56 @@ button { font:inherit; }
     border-radius:9px 0 0 9px;
   }
 }
+
+
+/* ===== Mobile left-corner alignment fix ===== */
+@media (pointer:coarse) and (orientation:landscape) and (max-height:800px) {
+  .battle-left-panel {
+    display:block !important;
+    left:max(7px,env(safe-area-inset-left)) !important;
+    top:43px !important;
+    bottom:calc(max(5px,env(safe-area-inset-bottom)) + var(--bottom-nav-h) + 6px) !important;
+    width:clamp(235px,27vw,292px) !important;
+  }
+
+  .left-shortcuts {
+    position:absolute;
+    left:0;
+    top:0;
+    width:40px !important;
+    height:auto;
+    padding:0 !important;
+  }
+
+  .match-stack {
+    position:absolute;
+    left:0;
+    bottom:0;
+    width:100% !important;
+    max-width:292px;
+    margin:0 !important;
+  }
+
+  .match-language,
+  .event-banner,
+  .match-mode-card,
+  .mobile-start-btn {
+    width:100% !important;
+  }
+}
+
+@media (pointer:coarse) and (orientation:landscape) and (max-height:520px) {
+  .battle-left-panel {
+    top:37px !important;
+    bottom:calc(max(3px,env(safe-area-inset-bottom)) + var(--bottom-nav-h) + 4px) !important;
+    width:clamp(215px,29vw,262px) !important;
+  }
+
+  .left-shortcuts {
+    width:36px !important;
+  }
+
+  .match-stack {
+    max-width:262px;
+  }
+}
