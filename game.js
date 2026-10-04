@@ -8,12 +8,13 @@ const UI = {
   startBtn: $('startBtn'), mobileStartBtn: $('mobileStartBtn'), restartBtn: $('restartBtn'), lobbyBtn: $('lobbyBtn'), fullscreenBtn: $('fullscreenBtn'), pauseBtn: $('pauseBtn'),
   lobbyHint: $('lobbyHint'), lobbyPlayers: $('lobbyPlayers'),
   hud: $('hud'), mobileControls: $('mobileControls'),
-  movePad: $('movePad'), moveStick: $('moveStick'), lookPad: $('lookPad'), fireBtn: $('fireBtn'), reloadBtn: $('reloadBtn')
+  movePad: $('movePad'), moveStick: $('moveStick'), lookPad: $('lookPad'), fireBtn: $('fireBtn'), reloadBtn: $('reloadBtn'),
+  planeJumpBtn: $('planeJumpBtn'), jumpBtn: $('jumpBtn')
 };
 const mm = UI.minimap.getContext('2d');
 
 const GAME = {
-  mapHalf: 90,
+  mapHalf: 240,
   playerSpeed: 14,
   sprintSpeed: 18,
   botSpeed: 8,
@@ -21,14 +22,14 @@ const GAME = {
   magSize: 30,
   reloadMs: 1500,
   fireDelayMs: 120,
-  botCount: 5,
+  botCount: 29,
   bulletDamage: 28,
   botDamage: 8,
   botFireMinMs: 620,
   botFireMaxMs: 1050,
-  zoneStart: 92,
-  zoneEnd: 18,
-  zoneShrinkSeconds: 150,
+  zoneStart: 232,
+  zoneEnd: 30,
+  zoneShrinkSeconds: 300,
   zoneDamagePerSecond: 9,
   spawnProtectionSeconds: 4
 };
@@ -40,6 +41,14 @@ let yaw = Math.PI, pitch = -0.18, bodyYaw = 0, aiming = false;
 let hp = GAME.maxHp, ammo = GAME.magSize, reserve = 120, kills = 0, reloading = false;
 let lastShot = 0, elapsed = 0, spawnProtection = 0, lobbyTime = 0, lobbyCharacterYaw = -.28;
 let countdownTimers = [];
+let brPhase = 'lobby';
+let plane = null;
+let planeProgress = 0;
+let playerDropped = false;
+let verticalVelocity = 0;
+let zoneElapsed = 0;
+const planeStart = new THREE.Vector3(-285,72,-165);
+const planeEnd = new THREE.Vector3(285,72,165);
 let bots = [], colliders = [], tracers = [];
 let multiplayer = false;
 let multiplayerRoom = null;
@@ -144,9 +153,9 @@ init();
 function init() {
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x8fb6d8);
-  scene.fog = new THREE.Fog(0x8fb6d8, 70, 210);
+  scene.fog = new THREE.Fog(0x8fb6d8, 110, 520);
 
-  camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.1, 500);
+  camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.1, 800);
   renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 1.8));
   renderer.setSize(innerWidth, innerHeight);
@@ -160,8 +169,13 @@ function init() {
   createLobbyStage();
   applyControlLayout();
   bindInputs();
-  resetMatch();
+  hp=GAME.maxHp;
+  ammo=GAME.magSize;
+  reserve=120;
+  bots=[];
+  brPhase='lobby';
   showLobby();
+  updateHud();
   animate();
 }
 
@@ -210,9 +224,10 @@ function startMultiplayerMatch(detail) {
   remoteUserId=null;
   remoteTarget={x:0,y:0,z:0,yaw:0,hp:100};
 
-  resetMatch();
+  resetMatch({battleRoyale:false});
   bots.forEach(bot=>bot.visible=false);
   bots=[];
+  brPhase='ground';
 
   hp=GAME.maxHp;
   kills=0;
@@ -343,7 +358,7 @@ function buildWorld() {
   scene.add(ground);
 
   const roadMat = new THREE.MeshStandardMaterial({ color: 0x4d5157, roughness: 1 });
-  for (const [x, z, w, d] of [[0,0,16,180],[0,0,180,12]]) {
+  for (const [x, z, w, d] of [[0,0,16,480],[0,0,480,12],[-125,55,10,220],[125,-60,10,230]]) {
     const road = new THREE.Mesh(new THREE.BoxGeometry(w,.08,d), roadMat);
     road.position.set(x,.04,z);
     road.receiveShadow = true;
@@ -356,6 +371,16 @@ function buildWorld() {
   addBox(37, 0, 33, 16, 9, 26, 0x787f8e);
   addBox(5, 0, 47, 18, 7, 12, 0x8a755c);
   addBox(-6, 0, -54, 20, 9, 14, 0x6f7f91);
+
+  // S1 outer settlements: spreads combat across the larger island.
+  addBox(-155,0,-132,28,10,34,0x8f6747);
+  addBox(-118,0,-158,22,8,24,0x75879a);
+  addBox(150,0,130,34,12,28,0x8d7a65);
+  addBox(120,0,160,20,9,32,0x6f8092);
+  addBox(-158,0,122,30,11,22,0xa17a55);
+  addBox(158,0,-138,24,9,30,0x7a8490);
+  addBox(-88,0,145,18,8,20,0x8d7359);
+  addBox(92,0,-150,20,8,18,0x72879a);
 
   const wallColor = 0x8c8b86;
   addBox(-18,0,-8,18,3,2,wallColor);
@@ -538,16 +563,256 @@ function createLobbyStage() {
   scene.add(lobbyStage);
 }
 
+function createPlane() {
+  if (plane) scene.remove(plane);
+
+  plane = new THREE.Group();
+  const bodyMat = new THREE.MeshStandardMaterial({ color:0xb8c1c9, roughness:.55, metalness:.28 });
+  const darkMat = new THREE.MeshStandardMaterial({ color:0x39434e, roughness:.62 });
+
+  const body = new THREE.Mesh(new THREE.BoxGeometry(10,2.3,3.2), bodyMat);
+  body.castShadow = false;
+  plane.add(body);
+
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(1.6,3.4,10), bodyMat);
+  nose.rotation.z = -Math.PI/2;
+  nose.position.x = 6.1;
+  plane.add(nose);
+
+  const wing = new THREE.Mesh(new THREE.BoxGeometry(4.2,.28,17), bodyMat);
+  plane.add(wing);
+
+  const tail = new THREE.Mesh(new THREE.BoxGeometry(2.4,2.7,.4), darkMat);
+  tail.position.set(-4.3,1.1,0);
+  plane.add(tail);
+
+  plane.scale.set(1.35,1.35,1.35);
+  scene.add(plane);
+}
+
+function randomGroundPoint(margin=28) {
+  for (let attempt=0; attempt<24; attempt++) {
+    const x=THREE.MathUtils.randFloat(-GAME.mapHalf+margin,GAME.mapHalf-margin);
+    const z=THREE.MathUtils.randFloat(-GAME.mapHalf+margin,GAME.mapHalf-margin);
+    if (!blocked(x,z,1.4)) return new THREE.Vector3(x,0,z);
+  }
+  return new THREE.Vector3(0,0,0);
+}
+
+function setupBattleRoyaleFlight() {
+  brPhase='plane';
+  planeProgress=0;
+  playerDropped=false;
+  verticalVelocity=0;
+
+  createPlane();
+  plane.position.copy(planeStart);
+  const dir=planeEnd.clone().sub(planeStart);
+  plane.rotation.y=Math.atan2(dir.x,dir.z)-Math.PI/2;
+
+  player.visible=false;
+  UI.planeJumpBtn?.classList.remove('hidden');
+  UI.jumpBtn?.classList.add('hidden');
+
+  bots.forEach((bot,index)=>{
+    bot.visible=false;
+    bot.userData.dropped=false;
+    bot.userData.landed=false;
+    bot.userData.dropAt=.08+Math.random()*.80;
+    bot.userData.dropTarget=randomGroundPoint(30);
+    bot.userData.target=null;
+    bot.userData.name='BOT '+String(index+1).padStart(2,'0');
+    bot.userData.kills=0;
+  });
+
+  showMessage('30 ALIVE · CHOOSE YOUR DROP',1400);
+}
+
+function jumpFromPlane() {
+  if (brPhase!=='plane' || playerDropped || !plane) return;
+
+  playerDropped=true;
+  brPhase='falling';
+  player.visible=true;
+  player.position.copy(plane.position).add(new THREE.Vector3(0,-5,0));
+  verticalVelocity=-10;
+
+  UI.planeJumpBtn?.classList.add('hidden');
+  UI.jumpBtn?.classList.remove('hidden');
+  if (UI.jumpBtn) UI.jumpBtn.textContent='PARA';
+
+  showMessage('FREE FALL · STEER TO LAND',800);
+}
+
+function openParachute() {
+  if (brPhase!=='falling') return;
+  brPhase='parachute';
+  verticalVelocity=-6;
+  UI.jumpBtn?.classList.add('hidden');
+  showMessage('PARACHUTE OPEN',600);
+}
+
+function updateFlight(dt) {
+  // Plane keeps flying even after the player jumps so the remaining bots can drop.
+  if (plane) {
+    planeProgress=Math.min(1,planeProgress+dt/18);
+    plane.position.lerpVectors(planeStart,planeEnd,planeProgress);
+
+    for (const bot of bots) {
+      if (!bot.userData.dropped && planeProgress>=bot.userData.dropAt) {
+        bot.userData.dropped=true;
+        bot.visible=true;
+        bot.position.copy(plane.position).add(new THREE.Vector3(0,-4-Math.random()*3,0));
+      }
+    }
+
+    if (brPhase==='plane' && !playerDropped) {
+      camera.position.lerp(plane.position.clone().add(new THREE.Vector3(-20,12,19)),.12);
+      camera.lookAt(plane.position);
+    }
+
+    if (brPhase==='plane' && planeProgress>=.94 && !playerDropped) {
+      jumpFromPlane();
+    }
+
+    if (planeProgress>=1) {
+      scene.remove(plane);
+      plane=null;
+    }
+  }
+
+  // Bot glide/landing simulation.
+  for (const bot of bots) {
+    if (!bot.userData.alive || !bot.userData.dropped || bot.userData.landed) continue;
+
+    const target=bot.userData.dropTarget;
+    const dx=target.x-bot.position.x;
+    const dz=target.z-bot.position.z;
+    const dist=Math.hypot(dx,dz)||1;
+    const glide=bot.position.y>20 ? 20 : 10;
+
+    bot.position.x+=dx/dist*glide*dt;
+    bot.position.z+=dz/dist*glide*dt;
+    bot.position.y=Math.max(0,bot.position.y-(bot.position.y>20?11:6)*dt);
+
+    if (bot.position.y<=.01) {
+      bot.position.y=0;
+      bot.userData.landed=true;
+      bot.userData.target=null;
+      bot.visible=true;
+    }
+  }
+
+  if (brPhase==='falling' || brPhase==='parachute') {
+    let mx=mobile.moveX;
+    let mz=mobile.moveY;
+
+    if(keys.has('KeyA')) mx-=1;
+    if(keys.has('KeyD')) mx+=1;
+    if(keys.has('KeyW')) mz-=1;
+    if(keys.has('KeyS')) mz+=1;
+
+    const inputLength=Math.hypot(mx,mz);
+    if(inputLength>1){ mx/=inputLength; mz/=inputLength; }
+
+    const forward=new THREE.Vector3(Math.sin(yaw),0,Math.cos(yaw));
+    const right=new THREE.Vector3(-forward.z,0,forward.x);
+    const glide=forward.multiplyScalar(-mz).add(right.multiplyScalar(mx));
+
+    if(glide.lengthSq()>.001) {
+      glide.normalize().multiplyScalar((brPhase==='parachute'?13:23)*dt);
+    }
+
+    player.position.x=THREE.MathUtils.clamp(player.position.x+glide.x,-GAME.mapHalf+2,GAME.mapHalf-2);
+    player.position.z=THREE.MathUtils.clamp(player.position.z+glide.z,-GAME.mapHalf+2,GAME.mapHalf-2);
+
+    if(brPhase==='falling' && player.position.y<28) openParachute();
+
+    verticalVelocity=brPhase==='parachute'
+      ? -6
+      : Math.max(-30,verticalVelocity-20*dt);
+
+    player.position.y=Math.max(0,player.position.y+verticalVelocity*dt);
+
+    if(player.position.y<=.01) {
+      player.position.y=0;
+      brPhase='ground';
+      zoneElapsed=0;
+      spawnProtection=GAME.spawnProtectionSeconds;
+      UI.jumpBtn?.classList.add('hidden');
+      if (UI.jumpBtn) UI.jumpBtn.textContent='JUMP';
+      showMessage('LANDED · SURVIVE',800);
+    }
+  }
+}
+
+function findBotTarget(bot) {
+  let best=null;
+  let bestD=Infinity;
+
+  if (hp>0 && brPhase==='ground') {
+    const d=bot.position.distanceToSquared(player.position);
+    if(d<bestD){
+      best={type:'player',obj:player};
+      bestD=d;
+    }
+  }
+
+  for(const other of bots){
+    if(other===bot || !other.userData.alive || !other.userData.landed) continue;
+    const d=bot.position.distanceToSquared(other.position);
+    if(d<bestD){
+      best={type:'bot',obj:other};
+      bestD=d;
+    }
+  }
+
+  return best;
+}
+
+function damageBotByBot(target,amount,killer) {
+  if(!target.userData.alive) return;
+
+  target.userData.hp-=amount;
+  if(target.userData.hp<=0){
+    target.userData.alive=false;
+    target.visible=false;
+    killer.userData.kills=(killer.userData.kills||0)+1;
+    showMessage(killer.userData.name+' eliminated '+target.userData.name,520);
+    checkWin();
+  }
+}
+
+function botShootTarget(bot,targetInfo,dist) {
+  const target=targetInfo.obj;
+  const origin=bot.position.clone().add(new THREE.Vector3(0,2.25,0));
+  const end=target.position.clone().add(new THREE.Vector3(0,2,0));
+  const accuracy=THREE.MathUtils.clamp(.82-dist*.006,.32,.78);
+  const hit=Math.random()<accuracy;
+
+  if(!hit){
+    end.x+=(Math.random()-.5)*8;
+    end.y+=(Math.random()-.5)*3;
+    end.z+=(Math.random()-.5)*8;
+  }
+
+  spawnTracer(origin,end,0xff775c);
+
+  if(!hit) return;
+  if(targetInfo.type==='player') damagePlayer(GAME.botDamage);
+  else damageBotByBot(target,GAME.botDamage,bot);
+}
+
 function makeBot(index) {
   const root = new THREE.Group();
   const colors = [0x8b3944,0x355b8f,0x7d6b2f,0x5d3f7c,0x2f6f68];
   const body = new THREE.Mesh(new THREE.CapsuleGeometry(.75,1.65,4,8), new THREE.MeshStandardMaterial({ color: colors[index % colors.length] }));
   body.position.y = 1.65;
-  body.castShadow = true;
+  body.castShadow = matchMedia('(pointer:fine)').matches;
   root.add(body);
   const head = new THREE.Mesh(new THREE.SphereGeometry(.45,12,9), new THREE.MeshStandardMaterial({ color:0xc89470 }));
   head.position.y = 3.08;
-  head.castShadow = true;
+  head.castShadow = matchMedia('(pointer:fine)').matches;
   root.add(head);
   const gun = new THREE.Mesh(new THREE.BoxGeometry(.16,.16,1.25), new THREE.MeshStandardMaterial({ color:0x24272b }));
   gun.position.set(.5,2.15,-.5);
@@ -560,42 +825,64 @@ function makeBot(index) {
   return root;
 }
 
-function resetMatch() {
-  bots.forEach(b => scene.remove(b));
-  bots = [];
-  tracers.forEach(t => scene.remove(t.mesh));
-  tracers = [];
-  hp = 100;
-  ammo = 30;
-  reserve = 120;
-  kills = 0;
-  reloading = false;
-  lastShot = 0;
-  elapsed = 0;
-  spawnProtection = GAME.spawnProtectionSeconds;
-  yaw = Math.PI;
-  pitch = -0.18;
-  aiming = false;
-  ended = false;
-  paused = false;
+function resetMatch(options={}) {
+  const battleRoyale=options.battleRoyale!==false;
+
+  if(plane){ scene.remove(plane); plane=null; }
+  UI.planeJumpBtn?.classList.add('hidden');
+  UI.jumpBtn?.classList.add('hidden');
+  if (UI.jumpBtn) UI.jumpBtn.textContent='JUMP';
+
+  bots.forEach(b=>scene.remove(b));
+  bots=[];
+  tracers.forEach(t=>scene.remove(t.mesh));
+  tracers=[];
+
+  hp=GAME.maxHp;
+  ammo=GAME.magSize;
+  reserve=120;
+  kills=0;
+  reloading=false;
+  lastShot=0;
+  elapsed=0;
+  zoneElapsed=0;
+  spawnProtection=GAME.spawnProtectionSeconds;
+  yaw=Math.PI;
+  pitch=-.18;
+  aiming=false;
+  ended=false;
+  paused=false;
   keys.clear();
-  mobile.moveX = mobile.moveY = 0;
-  mobile.firing = false;
+  mobile.moveX=mobile.moveY=0;
+  mobile.firing=false;
   centerStick();
+
   player.visible=true;
-  player.position.set(0,0,67);
-  bodyYaw = wrapAngle(yaw + Math.PI);
-  player.rotation.y = bodyYaw;
-  if (lobbyStage) lobbyStage.visible=false;
-  if (zoneRing) zoneRing.visible=true;
-  const spawns = [[-66,-58],[65,-60],[-63,60],[62,57],[0,-68]];
-  for (let i=0;i<GAME.botCount;i++) {
-    const bot = makeBot(i);
-    bot.position.set(spawns[i][0],0,spawns[i][1]);
-    bots.push(bot);
+  player.position.set(0,0,0);
+  bodyYaw=wrapAngle(yaw+Math.PI);
+  player.rotation.y=bodyYaw;
+
+  if(lobbyStage) lobbyStage.visible=false;
+  if(zoneRing) zoneRing.visible=true;
+
+  if(battleRoyale){
+    brPhase='countdown';
+    for(let i=0;i<GAME.botCount;i++){
+      const bot=makeBot(i);
+      bot.position.set(0,72,0);
+      bot.visible=false;
+      bot.userData.name='BOT '+String(i+1).padStart(2,'0');
+      bot.userData.dropped=false;
+      bot.userData.landed=false;
+      bot.userData.target=null;
+      bots.push(bot);
+    }
+  } else {
+    brPhase='ground';
   }
+
   UI.endOverlay.classList.add('hidden');
-  UI.reloadState.textContent = '';
+  UI.reloadState.textContent='';
   updateHud();
 }
 
@@ -612,11 +899,12 @@ function beginMatchCountdown() {
   countdownTimers.push(setTimeout(() => showMessage('2', 100000), 1000));
   countdownTimers.push(setTimeout(() => showMessage('1', 100000), 2000));
   countdownTimers.push(setTimeout(() => {
-    showMessage('GO!', 550);
-    paused = false;
-    spawnProtection = GAME.spawnProtectionSeconds;
+    showMessage('GO!',550);
+    setupBattleRoyaleFlight();
+    paused=false;
+    spawnProtection=GAME.spawnProtectionSeconds;
     clock.getDelta();
-  }, 3000));
+  },3000));
 }
 
 function setGameUiVisible(visible) {
@@ -642,6 +930,13 @@ function showLobby() {
   started=false;
   paused=false;
   ended=false;
+  brPhase='lobby';
+  playerDropped=false;
+  planeProgress=0;
+  zoneElapsed=0;
+  UI.planeJumpBtn?.classList.add('hidden');
+  UI.jumpBtn?.classList.add('hidden');
+  if(plane){scene.remove(plane);plane=null;}
   reloading=false;
   mobile.firing=false;
   keys.clear();
@@ -956,6 +1251,10 @@ function bindInputs() {
     if (['KeyW','KeyA','KeyS','KeyD','ShiftLeft','ShiftRight'].includes(e.code)) keys.add(e.code);
     if (e.code === 'KeyR') beginReload();
     if (e.code === 'KeyP' || e.code === 'Escape') togglePause();
+    if(e.code==='Space'){
+      if(brPhase==='plane') jumpFromPlane();
+      else if(brPhase==='falling') openParachute();
+    }
   });
   addEventListener('keyup', e => keys.delete(e.code));
   addEventListener('mousemove', e => {
@@ -1097,6 +1396,14 @@ function bindInputs() {
     e.preventDefault();
     beginReload();
   });
+  UI.planeJumpBtn?.addEventListener('pointerdown',e=>{
+    e.preventDefault();
+    jumpFromPlane();
+  });
+  UI.jumpBtn?.addEventListener('pointerdown',e=>{
+    e.preventDefault();
+    openParachute();
+  });
 
   setupMovePad();
   setupLookPad();
@@ -1197,6 +1504,7 @@ function togglePause() {
 
 function beginReload() {
   if (!started || paused || ended || reloading || ammo >= GAME.magSize || reserve <= 0) return;
+  if (!multiplayer && brPhase!=='ground') return;
   reloading = true;
   UI.reloadState.textContent = 'Reloading…';
   const startedAt = performance.now();
@@ -1219,6 +1527,7 @@ function beginReload() {
 
 function shoot() {
   if (!started || paused || ended || reloading) return;
+  if (!multiplayer && brPhase!=='ground') return;
   const now=performance.now();
   if (now-lastShot < GAME.fireDelayMs) return;
   lastShot=now;
@@ -1435,32 +1744,56 @@ function updateLobby(dt) {
 
 function updateBots(dt) {
   for(const bot of bots){
-    if(!bot.userData.alive) continue;
+    if(!bot.userData.alive || !bot.userData.landed) continue;
+
     bot.userData.think-=dt;
-    const toP=player.position.clone().sub(bot.position);
-    const dist=toP.length();
-    const flat=toP.clone();
+
+    if(
+      bot.userData.think<=0 ||
+      !bot.userData.target ||
+      !bot.userData.target.obj?.visible
+    ){
+      bot.userData.target=findBotTarget(bot);
+      bot.userData.think=.45+Math.random()*.85;
+      if(Math.random()<.30) bot.userData.strafe*=-1;
+    }
+
+    const targetInfo=bot.userData.target;
+    if(!targetInfo) continue;
+
+    const target=targetInfo.obj;
+    const toTarget=target.position.clone().sub(bot.position);
+    const dist=toTarget.length();
+    const flat=toTarget.clone();
     flat.y=0;
-    if(flat.lengthSq()>0.001) flat.normalize();
+
+    if(flat.lengthSq()>.001) flat.normalize();
     bot.rotation.y=Math.atan2(flat.x,flat.z);
+
     const strafe=new THREE.Vector3(flat.z,0,-flat.x).multiplyScalar(bot.userData.strafe);
     const move=new THREE.Vector3();
-    if(dist>24) move.add(flat);
-    else if(dist<12) move.addScaledVector(flat,-.65);
-    else move.addScaledVector(strafe,.7);
-    if(bot.userData.think<=0){
-      bot.userData.think=.8+Math.random()*1.4;
-      if(Math.random()<.35) bot.userData.strafe*=-1;
-    }
+
+    if(dist>27) move.add(flat);
+    else if(dist<11) move.addScaledVector(flat,-.55);
+    else move.addScaledVector(strafe,.65);
+
     if(move.lengthSq()>0) move.normalize().multiplyScalar(GAME.botSpeed*dt);
+
     const before=bot.position.clone();
     moveWithCollision(bot,move,.95);
-    if(bot.position.distanceToSquared(before)<.002 && move.lengthSq()>0) bot.userData.strafe*=-1;
+    if(bot.position.distanceToSquared(before)<.002 && move.lengthSq()>0){
+      bot.userData.strafe*=-1;
+      bot.userData.think=0;
+    }
 
     bot.userData.nextShot-=dt*1000;
-    if(dist<62 && bot.userData.nextShot<=0 && hasSimpleLineOfSight(bot.position,player.position)){
+    if(
+      dist<70 &&
+      bot.userData.nextShot<=0 &&
+      hasSimpleLineOfSight(bot.position,target.position)
+    ){
       bot.userData.nextShot=GAME.botFireMinMs+Math.random()*(GAME.botFireMaxMs-GAME.botFireMinMs);
-      botShoot(bot,dist);
+      botShootTarget(bot,targetInfo,dist);
     }
   }
 }
@@ -1492,7 +1825,7 @@ function botShoot(bot,dist) {
 }
 
 function currentZoneRadius() {
-  const t=THREE.MathUtils.clamp(elapsed/GAME.zoneShrinkSeconds,0,1);
+  const t=THREE.MathUtils.clamp(zoneElapsed/GAME.zoneShrinkSeconds,0,1);
   return THREE.MathUtils.lerp(GAME.zoneStart,GAME.zoneEnd,t);
 }
 
@@ -1572,8 +1905,9 @@ function drawMinimap() {
   mm.stroke();
 
   mm.fillStyle='#ffffff';
+  const marker=(brPhase==='plane' && plane) ? plane.position : player.position;
   mm.beginPath();
-  mm.arc(cx+player.position.x*scale,cy+player.position.z*scale,5,0,Math.PI*2);
+  mm.arc(cx+marker.x*scale,cy+marker.z*scale,5,0,Math.PI*2);
   mm.fill();
 
   mm.strokeStyle='#ffffff';
@@ -1584,7 +1918,7 @@ function drawMinimap() {
 
   mm.fillStyle='#ff5b5b';
   bots.forEach(b=>{
-    if(!b.userData.alive) return;
+    if(!b.userData.alive || (!multiplayer && !b.userData.landed)) return;
     mm.beginPath();
     mm.arc(cx+b.position.x*scale,cy+b.position.z*scale,3.4,0,Math.PI*2);
     mm.fill();
@@ -1614,19 +1948,36 @@ addEventListener('unhandledrejection', event => {
 function animate() {
   requestAnimationFrame(animate);
   const dt=Math.min(clock.getDelta(),.033);
+
   if(started && !paused && !ended){
     elapsed+=dt;
     spawnProtection=Math.max(0,spawnProtection-dt);
-    updatePlayer(dt);
-    if (multiplayer) {
+
+    if(multiplayer){
+      brPhase='ground';
+      zoneElapsed+=dt;
+      updatePlayer(dt);
       updateRemotePlayer(dt);
       sendMultiplayerState();
+      updateZone(dt);
     } else {
-      updateBots(dt);
+      if(brPhase==='plane' || brPhase==='falling' || brPhase==='parachute'){
+        updateFlight(dt);
+      } else if(brPhase==='ground'){
+        zoneElapsed+=dt;
+        updatePlayer(dt);
+        updateZone(dt);
+      }
+
+      // Landed bots can fight while other players are still dropping.
+      if(brPhase!=='countdown') updateBots(dt);
     }
-    updateZone(dt);
+
     updateTracers(dt);
-    updateCamera();
+
+    // Plane phase owns the camera. Falling/parachute use the normal follow camera.
+    if(multiplayer || brPhase!=='plane') updateCamera();
+
     updateHud();
     drawMinimap();
   } else if(!started) {
@@ -1635,5 +1986,6 @@ function animate() {
     updateCamera();
     drawMinimap();
   }
+
   renderer.render(scene,camera);
 }
