@@ -84,6 +84,47 @@
           </div>
         </div>
 
+        <div id="lobbyCharacterDrag" class="lobby-character-drag" aria-hidden="true"></div>
+
+        <aside class="battle-left-panel" aria-label="Match controls">
+          <div class="left-shortcuts">
+            <button class="shortcut-tile" data-shortcut="friends"><span>👥</span><small>0/25</small></button>
+            <button class="shortcut-tile" data-shortcut="crate"><span>▣</span><small>68</small></button>
+            <button class="shortcut-tile" data-shortcut="rank"><span>★</span><small>66</small></button>
+            <button class="shortcut-tile accent" data-shortcut="shop"><span>🛒</span><small>SHOP</small></button>
+          </div>
+
+          <div class="match-stack">
+            <button class="match-language">
+              <span>◎</span>
+              <strong>Match By Language</strong>
+              <span>⇄</span>
+            </button>
+
+            <button class="event-banner">
+              <div>
+                <strong>BATTLE PASS</strong>
+                <small>Season missions available</small>
+              </div>
+              <span>›</span>
+            </button>
+
+            <button class="match-mode-card">
+              <div class="mode-thumb">GV</div>
+              <div>
+                <strong>Classic · Solo</strong>
+                <small>GREEN VALLEY · 1 + 5 BOTS</small>
+              </div>
+              <span>›</span>
+            </button>
+
+            <button id="mobileStartBtn" class="mobile-start-btn">
+              <span>START</span>
+              <span>›</span>
+            </button>
+          </div>
+        </aside>
+
         <section class="lobby-hero">
           <div class="season-tag">SEASON 01</div>
           <div class="hero-kicker">BATTLE ROYALE</div>
@@ -146,6 +187,32 @@
       </div>
 
       <button id="fullscreenBtn" class="lobby-fullscreen" aria-label="Fullscreen">⛶</button>
+
+      <button id="drawerToggle" class="drawer-toggle" aria-label="Open menu" aria-expanded="false">›</button>
+      <div id="drawerBackdrop" class="drawer-backdrop"></div>
+
+      <aside id="lobbyDrawer" class="lobby-drawer" aria-label="More menu">
+        <div class="drawer-head">
+          <strong>MORE</strong>
+          <button id="drawerClose" class="drawer-close" aria-label="Close menu">×</button>
+        </div>
+
+        <div class="drawer-grid">
+          <button class="drawer-item" data-drawer-item="mail"><span class="drawer-icon">✉</span><span><strong>MAIL</strong><small>Messages & rewards</small></span><b>›</b></button>
+          <button class="drawer-item" data-drawer-item="settings"><span class="drawer-icon">⚙</span><span><strong>SETTINGS</strong><small>Game options</small></span><b>›</b></button>
+          <button class="drawer-item" data-drawer-item="clan"><span class="drawer-icon">◆</span><span><strong>CLAN</strong><small>Team & community</small></span><b>›</b></button>
+          <button class="drawer-item" data-drawer-item="rank"><span class="drawer-icon">▥</span><span><strong>RANK</strong><small>Leaderboards</small></span><b>›</b></button>
+          <button class="drawer-item" data-drawer-item="security"><span class="drawer-icon">◉</span><span><strong>SECURITY CENTER</strong><small>Account protection</small></span><b>›</b></button>
+          <button class="drawer-item" data-drawer-item="region"><span class="drawer-icon">⌖</span><span><strong>REGION</strong><small>Select region</small></span><b>›</b></button>
+          <button class="drawer-item" data-drawer-item="create"><span class="drawer-icon">⬡</span><span><strong>CO-CREATE SPACE</strong><small>Creator tools</small></span><b>›</b></button>
+          <button class="drawer-item" data-drawer-item="club"><span class="drawer-icon">♟</span><span><strong>CLUB</strong><small>Find friends</small></span><b>›</b></button>
+          <button class="drawer-item" data-drawer-item="tournament"><span class="drawer-icon">♜</span><span><strong>TOURNAMENT</strong><small>Competitive events</small></span><b>›</b></button>
+          <button class="drawer-item" data-drawer-item="esports"><span class="drawer-icon">🏆</span><span><strong>ESPORTS CENTER</strong><small>Watch & compete</small></span><b>›</b></button>
+          <button class="drawer-item" data-drawer-item="wiki"><span class="drawer-icon">▤</span><span><strong>GAME WIKI</strong><small>Guides & info</small></span><b>›</b></button>
+          <button class="drawer-item" data-drawer-item="support"><span class="drawer-icon">◔</span><span><strong>CUSTOMER SERVICE</strong><small>Help & support</small></span><b>›</b></button>
+          <button class="drawer-item drawer-wide" data-drawer-item="recall"><span class="drawer-icon">↶</span><span><strong>RECALL</strong><small>Returning players</small></span><b>›</b></button>
+        </div>
+      </aside>
 
       <nav class="lobby-bottom-nav" aria-label="Lobby menu">
         <button class="lobby-nav-item" data-lobby-tab="theme">
