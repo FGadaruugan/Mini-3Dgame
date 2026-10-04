@@ -3559,3 +3559,83 @@ button { font:inherit; }
   z-index:120 !important;
   box-shadow:0 0 0 2px rgba(241,200,75,.35), 0 8px 20px rgba(0,0,0,.35);
 }
+
+
+/* ===== S1 Car System ===== */
+.vehicle-hud {
+  position:fixed;
+  left:50%;
+  bottom:18px;
+  transform:translateX(-50%);
+  z-index:18;
+  min-width:110px;
+  padding:8px 14px;
+  border-radius:10px;
+  background:rgba(8,12,18,.82);
+  border:1px solid rgba(255,255,255,.15);
+  display:flex;
+  align-items:baseline;
+  justify-content:center;
+  gap:6px;
+  pointer-events:none;
+}
+.vehicle-hud span,
+.vehicle-hud small {
+  font-size:9px;
+  opacity:.62;
+  letter-spacing:.08em;
+}
+.vehicle-hud strong {
+  font-size:22px;
+}
+
+.drive-btn {
+  position:fixed;
+  left:50%;
+  bottom:72px;
+  transform:translateX(-50%);
+  z-index:120;
+  min-width:92px;
+  min-height:42px;
+  border:0;
+  border-radius:9px;
+  background:#f1c84b;
+  color:#111;
+  font-weight:1000;
+  pointer-events:auto !important;
+  touch-action:manipulation;
+}
+
+.drive-mobile {
+  width:56px;
+  height:56px;
+  right:88px;
+  bottom:108px;
+  z-index:125;
+  font-size:8px;
+  background:rgba(193,145,24,.85);
+  border-color:rgba(255,224,105,.72);
+}
+
+@media (pointer:coarse), (max-width:800px) {
+  .vehicle-hud {
+    bottom:8px;
+    min-width:82px;
+    padding:5px 8px;
+  }
+  .vehicle-hud strong { font-size:15px; }
+  .vehicle-hud span,
+  .vehicle-hud small { font-size:6px; }
+
+  .drive-btn {
+    display:none !important;
+  }
+
+  .drive-mobile {
+    right:78px;
+    bottom:98px;
+    width:48px;
+    height:48px;
+    font-size:7px;
+  }
+}
