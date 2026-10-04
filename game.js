@@ -3,6 +3,26 @@ import { GAME, WEAPONS, CAR_CONFIG, LOOT_CONFIG } from './game-config.js';
 import { BASE_SCENE_OBJECTS } from './scene-data.js';
 import { initDevTools, updateDevTools } from './dev-tools.js';
 
+const STUDIO_TEST_MODE=new URLSearchParams(location.search).get('studioTest')==='1';
+
+if(STUDIO_TEST_MODE){
+  try{
+    const draft=JSON.parse(localStorage.getItem('mini3d-studio-data-v1')||'null');
+    if(draft?.version===1){
+      if(draft.game && typeof draft.game==='object') Object.assign(GAME,draft.game);
+      if(draft.car && typeof draft.car==='object') Object.assign(CAR_CONFIG,draft.car);
+      if(draft.loot && typeof draft.loot==='object') Object.assign(LOOT_CONFIG,draft.loot);
+      if(draft.weapons && typeof draft.weapons==='object'){
+        for(const [id,values] of Object.entries(draft.weapons)){
+          if(WEAPONS[id] && values && typeof values==='object') Object.assign(WEAPONS[id],values);
+        }
+      }
+    }
+  }catch(error){
+    console.warn('Studio data draft could not be loaded',error);
+  }
+}
+
 const $ = (id) => document.getElementById(id);
 const UI = {
   hp: $('hp'), alive: $('alive'), kills: $('kills'), ammo: $('ammo'), reserve: $('reserve'),
@@ -1021,7 +1041,7 @@ function init() {
   updateHud();
 
   initDevTools({
-    enabled: new URLSearchParams(location.search).get('studioTest')==='1',
+    enabled: STUDIO_TEST_MODE,
     getStats: () => ({
       fps: devFps,
       phase: brPhase,
