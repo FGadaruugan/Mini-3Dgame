@@ -105,7 +105,12 @@ function availableElements(){
 }
 
 function saveRaw(){
-  localStorage.setItem(GUI_DRAFT_KEY,JSON.stringify({...state,updatedAt:new Date().toISOString()}));
+  localStorage.setItem(GUI_DRAFT_KEY,JSON.stringify({
+    ...state,
+    updatedAt:new Date().toISOString(),
+    generatedCss:getGeneratedGuiCss(),
+    playerDefaults:getPlayerControlDefaultsSnippet()
+  }));
 }
 
 function markDirty(){
