@@ -5,7 +5,7 @@ const UI = {
   hp: $('hp'), alive: $('alive'), kills: $('kills'), ammo: $('ammo'), reserve: $('reserve'),
   zoneInfo: $('zoneInfo'), reloadState: $('reloadState'), minimap: $('minimap'), hitmarker: $('hitmarker'),
   message: $('message'), startOverlay: $('startOverlay'), endOverlay: $('endOverlay'), endTitle: $('endTitle'), endText: $('endText'),
-  startBtn: $('startBtn'), restartBtn: $('restartBtn'), lobbyBtn: $('lobbyBtn'), fullscreenBtn: $('fullscreenBtn'), pauseBtn: $('pauseBtn'),
+  startBtn: $('startBtn'), mobileStartBtn: $('mobileStartBtn'), restartBtn: $('restartBtn'), lobbyBtn: $('lobbyBtn'), fullscreenBtn: $('fullscreenBtn'), pauseBtn: $('pauseBtn'),
   lobbyHint: $('lobbyHint'), lobbyPlayers: $('lobbyPlayers'),
   hud: $('hud'), mobileControls: $('mobileControls'),
   movePad: $('movePad'), moveStick: $('moveStick'), lookPad: $('lookPad'), fireBtn: $('fireBtn'), reloadBtn: $('reloadBtn')
@@ -284,6 +284,9 @@ function setGameUiVisible(visible) {
 
 function showLobby() {
   document.exitPointerLock?.();
+  document.getElementById('lobbyDrawer')?.classList.remove('open');
+  document.getElementById('drawerBackdrop')?.classList.remove('open');
+  document.getElementById('drawerToggle')?.classList.remove('open');
   started=false;
   paused=false;
   ended=false;
@@ -370,6 +373,9 @@ document.addEventListener('webkitfullscreenchange', () => {
 });
 
 async function startMatch() {
+  document.getElementById('lobbyDrawer')?.classList.remove('open');
+  document.getElementById('drawerBackdrop')?.classList.remove('open');
+  document.getElementById('drawerToggle')?.classList.remove('open');
   if (selectedMode !== 'solo') {
     UI.lobbyHint.textContent='This multiplayer mode is coming soon.';
     return;
@@ -418,7 +424,7 @@ function bindInputs() {
   });
   renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
 
-  const lobbyHero=document.querySelector('.lobby-hero');
+  const lobbyHero=document.getElementById('lobbyCharacterDrag') || document.querySelector('.lobby-hero');
   let lobbyDragPointer=null;
   let lobbyDragX=0;
 
@@ -484,8 +490,38 @@ function bindInputs() {
     });
   });
 
+  const drawer=document.getElementById('lobbyDrawer');
+  const drawerToggle=document.getElementById('drawerToggle');
+  const drawerClose=document.getElementById('drawerClose');
+  const drawerBackdrop=document.getElementById('drawerBackdrop');
+
+  const setDrawerOpen=open => {
+    drawer?.classList.toggle('open',open);
+    drawerBackdrop?.classList.toggle('open',open);
+    drawerToggle?.classList.toggle('open',open);
+    drawerToggle?.setAttribute('aria-expanded',String(open));
+  };
+
+  drawerToggle?.addEventListener('click',()=>setDrawerOpen(!drawer?.classList.contains('open')));
+  drawerClose?.addEventListener('click',()=>setDrawerOpen(false));
+  drawerBackdrop?.addEventListener('click',()=>setDrawerOpen(false));
+
+  document.querySelectorAll('.drawer-item').forEach(item=>{
+    item.addEventListener('click',()=>{
+      const name=item.querySelector('strong')?.textContent || 'MENU';
+      const toast=document.getElementById('lobbyTabToast');
+      if(toast){
+        toast.textContent=name + ' · COMING SOON';
+        toast.classList.remove('hidden');
+        clearTimeout(toast._hideTimer);
+        toast._hideTimer=setTimeout(()=>toast.classList.add('hidden'),900);
+      }
+    });
+  });
+
   UI.fullscreenBtn?.addEventListener('click', enterFullscreen);
   UI.startBtn.addEventListener('click', startMatch);
+  UI.mobileStartBtn?.addEventListener('click', startMatch);
   UI.restartBtn.addEventListener('click', () => {
     resetMatch();
     started=true;
