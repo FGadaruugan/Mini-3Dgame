@@ -9,7 +9,15 @@ const UI = {
   lobbyHint: $('lobbyHint'), lobbyPlayers: $('lobbyPlayers'),
   hud: $('hud'), mobileControls: $('mobileControls'),
   movePad: $('movePad'), moveStick: $('moveStick'), lookPad: $('lookPad'), fireBtn: $('fireBtn'), reloadBtn: $('reloadBtn'),
-  planeJumpBtn: $('planeJumpBtn'), jumpBtn: $('jumpBtn')
+  planeJumpBtn: $('planeJumpBtn'), jumpBtn: $('jumpBtn'),
+  weaponName: $('weaponName'), ammoType: $('ammoType'),
+  weaponSlot1: $('weaponSlot1'), weaponSlot2: $('weaponSlot2'),
+  backpackBtn: $('backpackBtn'), backpackOverlay: $('backpackOverlay'), backpackClose: $('backpackClose'),
+  bagWeapon1: $('bagWeapon1'), bagWeapon2: $('bagWeapon2'),
+  armorValue: $('armorValue'), bandageValue: $('bandageValue'), backpackCapacity: $('backpackCapacity'),
+  ammo556Value: $('ammo556Value'), ammo9Value: $('ammo9Value'), useBandageBag: $('useBandageBag'),
+  lootPrompt: $('lootPrompt'), lootPromptText: $('lootPromptText'), pickupBtn: $('pickupBtn'),
+  pickupMobileBtn: $('pickupMobileBtn'), bandageBtn: $('bandageBtn')
 };
 const mm = UI.minimap.getContext('2d');
 
@@ -33,6 +41,31 @@ const GAME = {
   zoneDamagePerSecond: 9,
   spawnProtectionSeconds: 4
 };
+
+const WEAPONS = {
+  AR4:  { id:'AR4',  name:'AR-4',  ammoType:'5.56', mag:30, damage:27, fireDelay:105, reloadMs:1450, range:150 },
+  AR7:  { id:'AR7',  name:'AR-7',  ammoType:'5.56', mag:30, damage:32, fireDelay:125, reloadMs:1550, range:155 },
+  SMG9: { id:'SMG9', name:'SMG-9', ammoType:'9mm',  mag:35, damage:20, fireDelay:72,  reloadMs:1250, range:95  },
+  DMR5: { id:'DMR5', name:'DMR-5', ammoType:'5.56', mag:20, damage:43, fireDelay:235, reloadMs:1700, range:190 },
+  LMG5: { id:'LMG5', name:'LMG-5', ammoType:'5.56', mag:45, damage:25, fireDelay:92,  reloadMs:2150, range:145 }
+};
+
+const BACKPACK_MAX = 12;
+let lootPickups = [];
+let nearestLoot = null;
+let activeWeaponSlot = 0;
+let backpackOpen = false;
+let backpackPauseRestore = false;
+let inventory = createEmptyInventory();
+
+function createEmptyInventory() {
+  return {
+    weapons:[null,null],
+    ammo:{'5.56':0,'9mm':0},
+    bandage:0,
+    armor:0
+  };
+}
 
 let scene, camera, renderer, clock, player, ground, zoneRing, lobbyStage, lobbySpot;
 let started = false, paused = false, ended = false;
@@ -147,6 +180,223 @@ const mobile = {
   movePointer: null, lookPointer: null, firePointer: null,
   moveX: 0, moveY: 0, lookLastX: 0, lookLastY: 0, firing: false
 };
+
+function getActiveWeaponSlot() {
+  return inventory.weapons[activeWeaponSlot] || null;
+}
+
+function getWeaponDef(slot=getActiveWeaponSlot()) {
+  return slot ? WEAPONS[slot.id] : null;
+}
+
+function syncLegacyAmmo() {
+  const slot=getActiveWeaponSlot();
+  const def=getWeaponDef(slot);
+  ammo=slot ? slot.magAmmo : 0;
+  reserve=def ? (inventory.ammo[def.ammoType] || 0) : 0;
+}
+
+function backpackUsed() {
+  const weapons=inventory.weapons.filter(Boolean).length*2;
+  const ammoStacks=Math.ceil((inventory.ammo['5.56']||0)/30)+Math.ceil((inventory.ammo['9mm']||0)/30);
+  return weapons+ammoStacks+inventory.bandage+(inventory.armor>0?1:0);
+}
+
+function canAddBackpackUnits(units=1) {
+  return backpackUsed()+units<=BACKPACK_MAX;
+}
+
+function setActiveWeaponSlot(index) {
+  if(index<0 || index>1) return;
+  activeWeaponSlot=index;
+  reloading=false;
+  UI.reloadState.textContent='';
+  syncLegacyAmmo();
+  updateHud();
+}
+
+function clearLoot() {
+  lootPickups.forEach(item=>scene?.remove(item));
+  lootPickups=[];
+  nearestLoot=null;
+  UI.lootPrompt?.classList.add('hidden');
+  UI.pickupMobileBtn?.classList.add('hidden');
+}
+
+function createLootMesh(kind,payload) {
+  const group=new THREE.Group();
+  let mesh;
+  if(kind==='weapon'){
+    mesh=new THREE.Mesh(
+      new THREE.BoxGeometry(1.45,.22,.34),
+      new THREE.MeshStandardMaterial({color:0x303943,roughness:.42,metalness:.25})
+    );
+  } else if(kind==='ammo'){
+    mesh=new THREE.Mesh(
+      new THREE.BoxGeometry(.62,.34,.48),
+      new THREE.MeshStandardMaterial({color:payload.ammoType==='5.56'?0xb89f45:0x769b55,roughness:.55})
+    );
+  } else if(kind==='bandage'){
+    mesh=new THREE.Mesh(
+      new THREE.CylinderGeometry(.32,.32,.22,10),
+      new THREE.MeshStandardMaterial({color:0xf2f2f2,roughness:.8})
+    );
+    mesh.rotation.z=Math.PI/2;
+  } else {
+    mesh=new THREE.Mesh(
+      new THREE.BoxGeometry(.82,.95,.24),
+      new THREE.MeshStandardMaterial({color:0x36556e,roughness:.65})
+    );
+  }
+  mesh.castShadow=false;
+  group.add(mesh);
+  group.position.y=.45;
+  group.userData.loot={kind,...payload};
+  group.className='loot-pickup';
+  scene.add(group);
+  return group;
+}
+
+function spawnLootAt(position,kind,payload) {
+  const item=createLootMesh(kind,payload);
+  item.position.set(position.x,.45,position.z);
+  lootPickups.push(item);
+}
+
+function spawnBattleRoyaleLoot() {
+  clearLoot();
+
+  const weaponIds=Object.keys(WEAPONS);
+  for(let i=0;i<20;i++){
+    spawnLootAt(randomGroundPoint(28),'weapon',{weaponId:weaponIds[i%weaponIds.length]});
+  }
+
+  for(let i=0;i<28;i++){
+    const ammoType=i%3===0?'9mm':'5.56';
+    spawnLootAt(randomGroundPoint(28),'ammo',{ammoType,amount:ammoType==='9mm'?35:30});
+  }
+
+  for(let i=0;i<12;i++) spawnLootAt(randomGroundPoint(28),'bandage',{amount:1});
+  for(let i=0;i<8;i++) spawnLootAt(randomGroundPoint(28),'armor',{protection:25});
+}
+
+function describeLoot(data) {
+  if(data.kind==='weapon') return WEAPONS[data.weaponId]?.name || 'WEAPON';
+  if(data.kind==='ammo') return data.ammoType.toUpperCase()+' AMMO · '+data.amount;
+  if(data.kind==='bandage') return 'BANDAGE';
+  if(data.kind==='armor') return 'ARMOR VEST · '+data.protection+'%';
+  return 'ITEM';
+}
+
+function updateLootInteraction() {
+  if(multiplayer || brPhase!=='ground' || backpackOpen){
+    nearestLoot=null;
+    UI.lootPrompt?.classList.add('hidden');
+    UI.pickupMobileBtn?.classList.add('hidden');
+    return;
+  }
+
+  let best=null;
+  let bestDist=3.4;
+  for(const item of lootPickups){
+    if(!item.visible) continue;
+    const dist=Math.hypot(item.position.x-player.position.x,item.position.z-player.position.z);
+    if(dist<bestDist){
+      best=item;
+      bestDist=dist;
+    }
+  }
+
+  nearestLoot=best;
+  if(best){
+    UI.lootPromptText.textContent=describeLoot(best.userData.loot);
+    UI.lootPrompt.classList.remove('hidden');
+    UI.pickupMobileBtn?.classList.remove('hidden');
+  } else {
+    UI.lootPrompt?.classList.add('hidden');
+    UI.pickupMobileBtn?.classList.add('hidden');
+  }
+}
+
+function removeLootItem(item) {
+  if(!item) return;
+  scene.remove(item);
+  lootPickups=lootPickups.filter(x=>x!==item);
+  if(nearestLoot===item) nearestLoot=null;
+}
+
+function pickupNearestLoot() {
+  if(!nearestLoot || brPhase!=='ground' || multiplayer) return;
+  const item=nearestLoot;
+  const data=item.userData.loot;
+
+  if(data.kind==='weapon'){
+    let slotIndex=inventory.weapons.findIndex(x=>!x);
+    if(slotIndex<0) slotIndex=activeWeaponSlot;
+
+    const old=inventory.weapons[slotIndex];
+    inventory.weapons[slotIndex]={id:data.weaponId,magAmmo:0};
+    setActiveWeaponSlot(slotIndex);
+    removeLootItem(item);
+    showMessage(old ? 'SWAPPED → '+WEAPONS[data.weaponId].name : 'PICKED '+WEAPONS[data.weaponId].name,650);
+  } else if(data.kind==='ammo'){
+    if(!canAddBackpackUnits(inventory.ammo[data.ammoType]%30===0?1:0)){
+      showMessage('BACKPACK FULL',600); return;
+    }
+    inventory.ammo[data.ammoType]+=data.amount;
+    removeLootItem(item);
+    syncLegacyAmmo();
+    showMessage('+'+data.amount+' '+data.ammoType.toUpperCase(),500);
+  } else if(data.kind==='bandage'){
+    if(!canAddBackpackUnits(1)){ showMessage('BACKPACK FULL',600); return; }
+    inventory.bandage+=data.amount||1;
+    removeLootItem(item);
+    showMessage('+ BANDAGE',500);
+  } else if(data.kind==='armor'){
+    inventory.armor=Math.max(inventory.armor,data.protection||25);
+    removeLootItem(item);
+    showMessage('ARMOR '+inventory.armor+'%',600);
+  }
+
+  updateHud();
+  updateLootInteraction();
+}
+
+function useBandage() {
+  if(inventory.bandage<=0){ showMessage('NO BANDAGE',500); return; }
+  if(hp>=GAME.maxHp){ showMessage('HP FULL',500); return; }
+  if(brPhase!=='ground' || ended) return;
+
+  inventory.bandage--;
+  hp=Math.min(GAME.maxHp,hp+25);
+  showMessage('BANDAGE · +25 HP',700);
+  updateHud();
+}
+
+function openBackpack() {
+  if(!started || ended || brPhase!=='ground') return;
+  backpackOpen=true;
+  backpackPauseRestore=paused;
+  if(!multiplayer) paused=true;
+  UI.backpackOverlay?.classList.remove('hidden');
+  updateHud();
+}
+
+function closeBackpack() {
+  backpackOpen=false;
+  UI.backpackOverlay?.classList.add('hidden');
+  if(!multiplayer && started && !ended) paused=backpackPauseRestore;
+  clock?.getDelta();
+}
+
+function updateLootAnimations(dt) {
+  const t=performance.now()*.001;
+  for(let i=0;i<lootPickups.length;i++){
+    const item=lootPickups[i];
+    item.rotation.y+=dt*.7;
+    item.position.y=.45+Math.sin(t*2+i*.7)*.08;
+  }
+}
 
 init();
 
@@ -861,8 +1111,21 @@ function resetMatch(options={}) {
   tracers=[];
 
   hp=GAME.maxHp;
-  ammo=GAME.magSize;
-  reserve=120;
+  inventory=createEmptyInventory();
+  activeWeaponSlot=0;
+  backpackOpen=false;
+  UI.backpackOverlay?.classList.add('hidden');
+  clearLoot();
+
+  if(battleRoyale){
+    ammo=0;
+    reserve=0;
+  } else {
+    inventory.weapons[0]={id:'AR4',magAmmo:WEAPONS.AR4.mag};
+    inventory.ammo['5.56']=120;
+    syncLegacyAmmo();
+  }
+
   kills=0;
   reloading=false;
   lastShot=0;
@@ -899,6 +1162,7 @@ function resetMatch(options={}) {
       bot.userData.target=null;
       bots.push(bot);
     }
+    spawnBattleRoyaleLoot();
   } else {
     brPhase='ground';
   }
@@ -959,6 +1223,8 @@ function showLobby() {
   UI.planeJumpBtn?.classList.add('hidden');
   UI.jumpBtn?.classList.add('hidden');
   if(plane){scene.remove(plane);plane=null;}
+  clearLoot();
+  closeBackpack();
   reloading=false;
   mobile.firing=false;
   keys.clear();
@@ -1272,6 +1538,11 @@ function bindInputs() {
   addEventListener('keydown', e => {
     if (['KeyW','KeyA','KeyS','KeyD','ShiftLeft','ShiftRight'].includes(e.code)) keys.add(e.code);
     if (e.code === 'KeyR') beginReload();
+    if (e.code === 'KeyE') pickupNearestLoot();
+    if (e.code === 'Digit1') setActiveWeaponSlot(0);
+    if (e.code === 'Digit2') setActiveWeaponSlot(1);
+    if (e.code === 'KeyB') backpackOpen ? closeBackpack() : openBackpack();
+    if (e.code === 'KeyH') useBandage();
     if (e.code === 'KeyP' || e.code === 'Escape') togglePause();
     if(e.code==='Space'){
       if(brPhase==='plane') jumpFromPlane();
@@ -1337,7 +1608,7 @@ function bindInputs() {
       selectedMode=mode;
       document.querySelectorAll('.mode-card').forEach(item=>item.classList.remove('active'));
       card.classList.add('active');
-      UI.lobbyPlayers.textContent='1 + 5 BOTS';
+      UI.lobbyPlayers.textContent='1 + 29 BOTS';
       UI.lobbyHint.textContent='SOLO mode is ready.';
     });
   });
@@ -1418,6 +1689,18 @@ function bindInputs() {
     e.preventDefault();
     beginReload();
   });
+
+  UI.pickupBtn?.addEventListener('click',pickupNearestLoot);
+  UI.pickupMobileBtn?.addEventListener('pointerdown',e=>{e.preventDefault();pickupNearestLoot();});
+  UI.bandageBtn?.addEventListener('pointerdown',e=>{e.preventDefault();useBandage();});
+  UI.weaponSlot1?.addEventListener('click',()=>setActiveWeaponSlot(0));
+  UI.weaponSlot2?.addEventListener('click',()=>setActiveWeaponSlot(1));
+  UI.bagWeapon1?.addEventListener('click',()=>setActiveWeaponSlot(0));
+  UI.bagWeapon2?.addEventListener('click',()=>setActiveWeaponSlot(1));
+  UI.backpackBtn?.addEventListener('click',openBackpack);
+  UI.backpackClose?.addEventListener('click',closeBackpack);
+  UI.useBandageBag?.addEventListener('click',useBandage);
+  UI.backpackOverlay?.addEventListener('click',e=>{if(e.target===UI.backpackOverlay)closeBackpack();});
   UI.planeJumpBtn?.addEventListener('pointerdown',e=>{
     e.preventDefault();
     e.stopPropagation();
@@ -1537,45 +1820,63 @@ function togglePause() {
 }
 
 function beginReload() {
-  if (!started || paused || ended || reloading || ammo >= GAME.magSize || reserve <= 0) return;
+  if (!started || paused || ended || reloading) return;
   if (!multiplayer && brPhase!=='ground') return;
-  reloading = true;
-  UI.reloadState.textContent = 'Reloading…';
-  const startedAt = performance.now();
-  const check = () => {
-    if (!reloading || ended) return;
-    if (performance.now()-startedAt >= GAME.reloadMs) {
-      const need = GAME.magSize-ammo;
-      const take = Math.min(need,reserve);
-      ammo += take;
-      reserve -= take;
+
+  const slot=getActiveWeaponSlot();
+  const def=getWeaponDef(slot);
+  if(!slot || !def) return;
+
+  const available=inventory.ammo[def.ammoType] || 0;
+  if(slot.magAmmo>=def.mag || available<=0) return;
+
+  reloading=true;
+  UI.reloadState.textContent='Reloading…';
+  const startedAt=performance.now();
+
+  const check=()=>{
+    if(!reloading || ended) return;
+    if(performance.now()-startedAt>=def.reloadMs){
+      const need=def.mag-slot.magAmmo;
+      const take=Math.min(need,inventory.ammo[def.ammoType]||0);
+      slot.magAmmo+=take;
+      inventory.ammo[def.ammoType]-=take;
       reloading=false;
       UI.reloadState.textContent='';
+      syncLegacyAmmo();
       updateHud();
     } else {
       requestAnimationFrame(check);
     }
   };
+
   requestAnimationFrame(check);
 }
 
 function shoot() {
   if (!started || paused || ended || reloading) return;
   if (!multiplayer && brPhase!=='ground') return;
+  const slot=getActiveWeaponSlot();
+  const weapon=getWeaponDef(slot);
+  if(!slot || !weapon){ showMessage('NO WEAPON',350); return; }
+
   const now=performance.now();
-  if (now-lastShot < GAME.fireDelayMs) return;
+  if (now-lastShot < weapon.fireDelay) return;
   lastShot=now;
-  if (ammo<=0) {
+
+  if (slot.magAmmo<=0) {
     beginReload();
     return;
   }
-  ammo--;
+
+  slot.magAmmo--;
+  syncLegacyAmmo();
   updateHud();
 
   const origin = camera.getWorldPosition(tmpV.clone());
   const dir = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion).normalize();
   raycaster.set(origin,dir);
-  raycaster.far=140;
+  raycaster.far=weapon?.range || 140;
   const liveMeshes=[];
   if (multiplayer && remotePlayer?.visible) {
     remotePlayer.children.forEach(c=>{
@@ -1600,13 +1901,13 @@ function shoot() {
 
     if (multiplayer && hit.object.userData.remotePlayer) {
       const headshot=hit.object===remotePlayer.children[1];
-      const amount=headshot ? GAME.bulletDamage*1.65 : GAME.bulletDamage;
+      const amount=headshot ? weapon.damage*1.65 : weapon.damage;
       window.Mini3DNet?.sendDamage(remoteUserId,amount);
       showHitmarker();
     } else {
       const bot=hit.object.userData.bot;
       const headshot=hit.object===bot.children[1];
-      damageBot(bot, headshot ? GAME.bulletDamage*1.65 : GAME.bulletDamage);
+      damageBot(bot, headshot ? weapon.damage*1.65 : weapon.damage);
       showHitmarker();
     }
   }
@@ -1636,7 +1937,8 @@ function damageBot(bot, amount) {
 
 function damagePlayer(amount) {
   if(ended || spawnProtection>0) return;
-  hp = Math.max(0,hp-amount);
+  const reduced=amount*(1-THREE.MathUtils.clamp(inventory.armor,0,60)/100);
+  hp = Math.max(0,hp-reduced);
   updateHud();
   if(hp<=0) endMatch(false);
 }
@@ -1703,6 +2005,7 @@ function updatePlayer(dt) {
   bodyYaw=lerpAngle(bodyYaw,desiredBodyYaw,1-Math.exp(-12*dt));
   player.rotation.y=bodyYaw;
 
+  updateLootInteraction();
   if(mobile.firing) shoot();
 }
 
@@ -1900,12 +2203,45 @@ function endMatch(win) {
 }
 
 function updateHud() {
+  syncLegacyAmmo();
+
   UI.hp.textContent=Math.ceil(hp);
   UI.ammo.textContent=ammo;
   UI.reserve.textContent=reserve;
   UI.kills.textContent=kills;
   UI.alive.textContent=1+bots.filter(b=>b.userData.alive).length;
   UI.hp.parentElement.style.outline=hp<30?'1px solid rgba(255,80,80,.9)':'';
+
+  const slot=getActiveWeaponSlot();
+  const def=getWeaponDef(slot);
+  if(UI.weaponName) UI.weaponName.textContent=def ? def.name : 'UNARMED';
+  if(UI.ammoType) UI.ammoType.textContent=def ? def.ammoType.toUpperCase()+' AMMO' : 'NO AMMO';
+
+  const slots=[UI.weaponSlot1,UI.weaponSlot2];
+  const bags=[UI.bagWeapon1,UI.bagWeapon2];
+  inventory.weapons.forEach((weaponSlot,index)=>{
+    const weaponDef=getWeaponDef(weaponSlot);
+    const name=weaponDef?.name || 'EMPTY';
+
+    if(slots[index]){
+      slots[index].classList.toggle('active',index===activeWeaponSlot);
+      slots[index].querySelector('strong').textContent=name;
+    }
+
+    if(bags[index]){
+      bags[index].classList.toggle('active',index===activeWeaponSlot);
+      bags[index].querySelector('strong').textContent=name;
+      bags[index].querySelector('small').textContent=weaponDef
+        ? weaponSlot.magAmmo+'/'+(inventory.ammo[weaponDef.ammoType]||0)+' · '+weaponDef.ammoType
+        : '—';
+    }
+  });
+
+  if(UI.armorValue) UI.armorValue.textContent=inventory.armor+'%';
+  if(UI.bandageValue) UI.bandageValue.textContent=inventory.bandage;
+  if(UI.backpackCapacity) UI.backpackCapacity.textContent=backpackUsed()+' / '+BACKPACK_MAX;
+  if(UI.ammo556Value) UI.ammo556Value.textContent=inventory.ammo['5.56']||0;
+  if(UI.ammo9Value) UI.ammo9Value.textContent=inventory.ammo['9mm']||0;
 }
 
 let messageTimer=0;
@@ -2008,6 +2344,7 @@ function animate() {
     }
 
     updateTracers(dt);
+    updateLootAnimations(dt);
 
     // Plane phase owns the camera. Falling/parachute use the normal follow camera.
     if(multiplayer || brPhase!=='plane') updateCamera();
