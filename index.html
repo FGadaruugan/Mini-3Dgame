@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
   <meta name="theme-color" content="#111827" />
   <title>Mini 3D Battle</title>
-  <link rel="stylesheet" href="./style.css?v=20261004-clean1" />
+  <link rel="stylesheet" href="./style.css?v=20261004-settings1" />
 </head>
 <body>
   <div id="rotateNotice" class="rotate-notice">
@@ -240,6 +240,112 @@
       <div id="lobbyTabToast" class="lobby-tab-toast hidden"></div>
     </div>
 
+    <div id="settingsOverlay" class="settings-overlay hidden">
+      <div class="settings-shell">
+        <div class="settings-header">
+          <div>
+            <small>MINI 3D BATTLE</small>
+            <strong>SETTINGS</strong>
+          </div>
+          <button id="settingsClose" class="settings-close" aria-label="Close settings">×</button>
+        </div>
+
+        <div class="settings-body">
+          <div class="settings-content">
+            <section id="settingsSensitivityPage" class="settings-page active">
+              <div class="settings-page-head">
+                <div>
+                  <small>CAMERA</small>
+                  <h2>SENSITIVITY</h2>
+                </div>
+                <p>Adjust how fast the camera reacts to your swipe.</p>
+              </div>
+
+              <div class="sensitivity-list">
+                <label class="sensitivity-row">
+                  <span><strong>Camera Horizontal</strong><small>Left / right look speed</small></span>
+                  <input id="sensHorizontal" type="range" min="20" max="200" step="5" value="100" />
+                  <b id="sensHorizontalValue">100%</b>
+                </label>
+
+                <label class="sensitivity-row">
+                  <span><strong>Camera Vertical</strong><small>Up / down look speed</small></span>
+                  <input id="sensVertical" type="range" min="20" max="200" step="5" value="100" />
+                  <b id="sensVerticalValue">100%</b>
+                </label>
+
+                <label class="sensitivity-row">
+                  <span><strong>ADS Sensitivity</strong><small>While aiming</small></span>
+                  <input id="sensAds" type="range" min="20" max="160" step="5" value="75" />
+                  <b id="sensAdsValue">75%</b>
+                </label>
+
+                <label class="sensitivity-row">
+                  <span><strong>Firing Sensitivity</strong><small>While holding FIRE</small></span>
+                  <input id="sensFiring" type="range" min="20" max="160" step="5" value="85" />
+                  <b id="sensFiringValue">85%</b>
+                </label>
+              </div>
+
+              <div class="settings-actions">
+                <button id="resetSensitivity" class="settings-secondary">RESET</button>
+                <div class="settings-save-note">Changes save automatically</div>
+              </div>
+            </section>
+
+            <section id="settingsControlsPage" class="settings-page">
+              <div class="settings-page-head">
+                <div>
+                  <small>HUD</small>
+                  <h2>CUSTOMIZE BUTTONS</h2>
+                </div>
+                <p>Drag controls, then adjust the selected button.</p>
+              </div>
+
+              <div id="controlPreview" class="control-preview">
+                <div class="preview-safe-label">DRAG BUTTONS</div>
+                <button class="control-preview-item move-control" data-control="move">MOVE</button>
+                <button class="control-preview-item fire-control selected" data-control="fire">FIRE</button>
+                <button class="control-preview-item reload-control" data-control="reload">RLD</button>
+              </div>
+
+              <div class="control-editor">
+                <div class="selected-control">
+                  <span>SELECTED</span>
+                  <strong id="selectedControlName">FIRE</strong>
+                </div>
+
+                <label>
+                  <span>Size <b id="controlSizeValue">100%</b></span>
+                  <input id="controlSize" type="range" min="70" max="140" step="5" value="100" />
+                </label>
+
+                <label>
+                  <span>Opacity <b id="controlOpacityValue">80%</b></span>
+                  <input id="controlOpacity" type="range" min="40" max="100" step="5" value="80" />
+                </label>
+              </div>
+
+              <div class="settings-actions controls-actions">
+                <button id="resetControlLayout" class="settings-secondary">RESET</button>
+                <button id="saveControlLayout" class="settings-primary">SAVE</button>
+              </div>
+            </section>
+          </div>
+
+          <nav class="settings-nav" aria-label="Settings categories">
+            <div class="settings-nav-title">SETTINGS</div>
+            <button class="settings-nav-item active" data-settings-page="sensitivity">
+              <span>⌁</span><strong>SENSITIVITY</strong>
+            </button>
+            <button class="settings-nav-item" data-settings-page="controls">
+              <span>✣</span><strong>CUSTOMIZE BUTTONS</strong>
+            </button>
+          </nav>
+        </div>
+      </div>
+    </div>
+
     <div id="endOverlay" class="overlay hidden">
       <div class="card">
         <h2 id="endTitle">MATCH OVER</h2>
@@ -252,6 +358,6 @@
     </div>
   </div>
 
-  <script type="module" src="./game.js?v=20261004-clean1"></script>
+  <script type="module" src="./game.js?v=20261004-settings1"></script>
 </body>
 </html>
