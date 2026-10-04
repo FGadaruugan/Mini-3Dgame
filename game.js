@@ -212,7 +212,6 @@ function createPlayer() {
   addPart(new THREE.BoxGeometry(.64,.82,.30), darkMat, 0,2.22,.42);
   const gun = addPart(new THREE.BoxGeometry(.17,.18,1.55), darkMat, .55,2.72,-.20,0,-.18,-.62);
   const barrel = addPart(new THREE.BoxGeometry(.10,.10,.72), accentMat, .88,2.95,-.50,0,-.18,-.62);
-  gun.add(barrel);
   addPart(new THREE.BoxGeometry(.22,.35,.17), darkMat, .43,2.53,-.20,0,-.18,-.62);
 
   // Small chest emblem for a stronger lobby silhouette.
