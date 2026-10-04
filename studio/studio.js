@@ -22,6 +22,18 @@ import {
   getGeneratedConfig,
   DATA_DRAFT_KEY
 } from './data-editor.js';
+import {
+  initGuiEditor,
+  setGuiEditorRole,
+  setGuiEditorActive,
+  saveGuiDraft,
+  getGuiStatus,
+  getGeneratedGuiCss,
+  getPlayerControlDefaultsSnippet,
+  undoGui,
+  redoGui,
+  GUI_DRAFT_KEY
+} from './gui-editor.js';
 
 const $=id=>document.getElementById(id);
 const supabase=createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
@@ -32,6 +44,7 @@ const FILES={
   'scene-data.js':'../scene-data.js',
   'dev-tools.js':'../dev-tools.js',
   'style.css':'../style.css',
+  'ui-layout.css':'../ui-layout.css',
   'profile.js':'../profile.js',
   'index.html':'../index.html',
   'STUDIO_GUIDE.md':'../STUDIO_GUIDE.md'
@@ -49,6 +62,7 @@ let workspaceMode='code';
 let studioReady=false;
 let sceneStatus={dirty:false,count:0,warnings:0,canUndo:false,canRedo:false};
 let dataStatus={dirty:false,saved:false,weapons:0};
+let guiStatus={dirty:false,group:'lobby',device:'desktop',count:0,canUndo:false,canRedo:false};
 let codeAutosaveTimer=0;
 
 function log(message,type=''){
@@ -75,6 +89,7 @@ function draftKey(file){return 'mini3d-studio-draft:'+file;}
 function canEditCode(){return ['owner','developer'].includes(access?.role);}
 function canEditScene(){return ['owner','developer','builder'].includes(access?.role);}
 function canEditData(){return ['owner','developer'].includes(access?.role);}
+function canEditGui(){return ['owner','developer','builder'].includes(access?.role);}
 
 function updateStats(){
   if(workspaceMode==='scene'){
@@ -92,6 +107,15 @@ function updateStats(){
     $('undoBtn').disabled=true;
     $('redoBtn').disabled=true;
     setHealth('DATA READY');
+    return;
+  }
+
+  if(workspaceMode==='gui'){
+    $('codeStats').textContent=guiStatus.count+' elements · '+String(guiStatus.group).toUpperCase()+' · '+String(guiStatus.device).toUpperCase();
+    $('fileState').textContent=guiStatus.dirty?'DRAFT':'GUI';
+    $('undoBtn').disabled=!guiStatus.canUndo;
+    $('redoBtn').disabled=!guiStatus.canRedo;
+    setHealth('GUI · '+String(guiStatus.device).toUpperCase());
     return;
   }
 
@@ -117,46 +141,58 @@ function updateRolePermissions(){
 
   setSceneEditorRole(access?.role||'tester');
   setDataEditorRole(access?.role||'tester');
+  setGuiEditorRole(access?.role||'tester');
 }
 
 function setWorkspaceMode(mode){
-  workspaceMode=['scene','data'].includes(mode)?mode:'code';
+  workspaceMode=['scene','data','gui'].includes(mode)?mode:'code';
   const sceneMode=workspaceMode==='scene';
   const dataMode=workspaceMode==='data';
+  const guiMode=workspaceMode==='gui';
   const codeMode=workspaceMode==='code';
 
   $('codePane').classList.toggle('hidden',!codeMode);
   $('scenePane').classList.toggle('hidden',!sceneMode);
   $('dataPane').classList.toggle('hidden',!dataMode);
+  $('guiPane').classList.toggle('hidden',!guiMode);
 
   $('codeExplorer').classList.toggle('hidden',!codeMode);
   $('sceneExplorer').classList.toggle('hidden',!sceneMode);
   $('dataExplorer').classList.toggle('hidden',!dataMode);
+  $('guiExplorer').classList.toggle('hidden',!guiMode);
 
   $('codeInspector').classList.toggle('hidden',!codeMode);
   $('sceneInspector').classList.toggle('hidden',!sceneMode);
   $('dataInspector').classList.toggle('hidden',!dataMode);
+  $('guiInspector').classList.toggle('hidden',!guiMode);
 
   $('codeTab').classList.toggle('active',codeMode);
   $('sceneTab').classList.toggle('active',sceneMode);
   $('dataTab').classList.toggle('active',dataMode);
+  $('guiTab').classList.toggle('active',guiMode);
 
   document.body.classList.toggle('scene-mode',sceneMode);
   document.body.classList.toggle('data-mode',dataMode);
+  document.body.classList.toggle('gui-mode',guiMode);
 
   $('activeFileLabel').textContent=sceneMode
     ? 'scene-data.js'
     : dataMode
       ? 'game-config.js'
-      : activeFile;
+      : guiMode
+        ? 'ui-layout.css'
+        : activeFile;
 
   $('cursorInfo').textContent=sceneMode
     ? (canEditScene()?'SCENE EDITOR':'SCENE VIEW · READ ONLY')
     : dataMode
       ? (canEditData()?'DATA EDITOR':'DATA VIEW · READ ONLY')
-      : (canEditCode()?'READY':'READ ONLY · '+String(access?.role||'player').toUpperCase());
+      : guiMode
+        ? (canEditGui()?'GUI EDITOR · DRAG TO MOVE':'GUI VIEW · READ ONLY')
+        : (canEditCode()?'READY':'READ ONLY · '+String(access?.role||'player').toUpperCase());
 
   setSceneEditorActive(sceneMode);
+  setGuiEditorActive(guiMode);
   updateStats();
 }
 
@@ -190,7 +226,8 @@ async function syncQuickTools(){
 async function loadFile(file,{ignoreDraft=false}={}){
   activeFile=file;
   $('activeFileLabel').textContent=workspaceMode==='code'?file:
-    workspaceMode==='scene'?'scene-data.js':'game-config.js';
+    workspaceMode==='scene'?'scene-data.js':
+    workspaceMode==='data'?'game-config.js':'ui-layout.css';
   document.querySelectorAll('.file-item').forEach(el=>el.classList.toggle('active',el.dataset.file===file));
 
   try{
@@ -267,6 +304,13 @@ function saveCurrent(){
     return ok;
   }
 
+  if(workspaceMode==='gui'){
+    if(!canEditGui()){log('GUI is read-only for this role','error');return false;}
+    const ok=saveGuiDraft();
+    updateStats();
+    return ok;
+  }
+
   if(!canEditCode()){log('Code is read-only for this role','error');return false;}
   localStorage.setItem(draftKey(activeFile),$('codeEditor').value);
   currentSource='draft';
@@ -281,6 +325,9 @@ function copyCurrent(){
   }
   if(workspaceMode==='data'){
     return copyText(getGeneratedConfig(),'game-config.js');
+  }
+  if(workspaceMode==='gui'){
+    return copyText(getGeneratedGuiCss(),'ui-layout.css');
   }
   return copyText($('codeEditor').value,activeFile);
 }
@@ -312,7 +359,8 @@ function collectBackup(label='Manual snapshot'){
     label,
     codeDrafts:collectCodeDrafts(),
     sceneDraft:localStorage.getItem(SCENE_KEY),
-    dataDraft:localStorage.getItem(DATA_DRAFT_KEY)
+    dataDraft:localStorage.getItem(DATA_DRAFT_KEY),
+    guiDraft:localStorage.getItem(GUI_DRAFT_KEY)
   };
 }
 
@@ -320,6 +368,7 @@ function createSnapshot(){
   saveCurrent();
   if(canEditScene()) saveSceneDraft();
   if(canEditData()) saveDataDraft();
+  if(canEditGui()) saveGuiDraft();
 
   const versions=getVersions();
   versions.unshift(collectBackup('Snapshot '+new Date().toLocaleString()));
@@ -341,6 +390,9 @@ function restoreBackup(backup){
 
   if(typeof backup.dataDraft==='string') localStorage.setItem(DATA_DRAFT_KEY,backup.dataDraft);
   else localStorage.removeItem(DATA_DRAFT_KEY);
+
+  if(typeof backup.guiDraft==='string') localStorage.setItem(GUI_DRAFT_KEY,backup.guiDraft);
+  else localStorage.removeItem(GUI_DRAFT_KEY);
 }
 
 function renderVersions(){
@@ -380,6 +432,7 @@ function exportBackup(){
   saveCurrent();
   if(canEditScene()) saveSceneDraft();
   if(canEditData()) saveDataDraft();
+  if(canEditGui()) saveGuiDraft();
 
   const backup=collectBackup('Exported backup');
   backup.history=getVersions().slice(0,10);
@@ -510,10 +563,20 @@ async function boot(){
       }
     });
 
+    initGuiEditor({
+      role:access.role,
+      log,
+      onStateChange:status=>{
+        guiStatus=status;
+        if(workspaceMode==='gui') updateStats();
+      }
+    });
+
     studioReady=true;
   }else{
     setSceneEditorRole(access.role);
     setDataEditorRole(access.role);
+    setGuiEditorRole(access.role);
   }
 
   updateRolePermissions();
@@ -536,6 +599,7 @@ $('studioSignIn').addEventListener('click',async()=>{
 $('codeTab').addEventListener('click',()=>setWorkspaceMode('code'));
 $('sceneTab').addEventListener('click',()=>setWorkspaceMode('scene'));
 $('dataTab').addEventListener('click',()=>setWorkspaceMode('data'));
+$('guiTab').addEventListener('click',()=>setWorkspaceMode('gui'));
 
 document.querySelectorAll('.file-item').forEach(btn=>{
   btn.addEventListener('click',()=>{
@@ -588,6 +652,7 @@ $('importFileInput').addEventListener('change',()=>{
 
 $('undoBtn').addEventListener('click',()=>{
   if(workspaceMode==='scene') undoScene();
+  else if(workspaceMode==='gui') undoGui();
   else if(workspaceMode==='code'){
     $('codeEditor').focus();
     document.execCommand?.('undo');
@@ -595,6 +660,7 @@ $('undoBtn').addEventListener('click',()=>{
 });
 $('redoBtn').addEventListener('click',()=>{
   if(workspaceMode==='scene') redoScene();
+  else if(workspaceMode==='gui') redoGui();
   else if(workspaceMode==='code'){
     $('codeEditor').focus();
     document.execCommand?.('redo');
@@ -609,6 +675,7 @@ $('codeFindInput').addEventListener('keydown',event=>{
 $('playTestBtn').addEventListener('click',()=>{
   if(canEditScene()) saveSceneDraft();
   if(canEditData()) saveDataDraft();
+  if(canEditGui()) saveGuiDraft();
   if(workspaceMode==='code' && currentSource==='draft'){
     log('Code draft is not executed automatically. Copy it into the source file first.','error');
   }
@@ -622,6 +689,10 @@ $('resetDataBtn').addEventListener('click',()=>{
   if(!confirm('Reset Data draft to the live game defaults?')) return;
   resetDataDraft();
   updateStats();
+});
+
+$('copyPlayerDefaultsBtn').addEventListener('click',()=>{
+  copyText(getPlayerControlDefaultsSnippet(),'PLAYER CONTROL DEFAULTS');
 });
 
 $('memberPlayerId').addEventListener('input',()=>{
@@ -664,6 +735,17 @@ addEventListener('keydown',event=>{
   if((event.ctrlKey||event.metaKey) && event.code==='KeyS'){
     event.preventDefault();
     saveCurrent();
+    return;
+  }
+
+  if(workspaceMode==='gui' && !typing){
+    if((event.ctrlKey||event.metaKey) && event.code==='KeyZ'){
+      event.preventDefault();
+      event.shiftKey?redoGui():undoGui();
+    }else if((event.ctrlKey||event.metaKey) && event.code==='KeyY'){
+      event.preventDefault();
+      redoGui();
+    }
     return;
   }
 
