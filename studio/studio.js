@@ -1,5 +1,13 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from '../supabase-config.js';
+import {
+  initSceneEditor,
+  setSceneEditorRole,
+  setSceneEditorActive,
+  saveSceneDraft,
+  reloadSceneDraft,
+  getSceneStatus
+} from './scene-editor.js';
 
 const $=id=>document.getElementById(id);
 const supabase=createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
@@ -16,6 +24,8 @@ let access=null;
 let activeFile='game.js';
 let liveText='';
 let currentSource='live';
+let workspaceMode='code';
+let studioReady=false;
 
 function log(message,type=''){
   const row=document.createElement('div');
@@ -31,11 +41,61 @@ function setGate(text,signIn=false){
 }
 
 function draftKey(file){return 'mini3d-studio-draft:'+file;}
+function canEditCode(){return ['owner','developer'].includes(access?.role);}
+function canEditScene(){return ['owner','developer','builder'].includes(access?.role);}
 
 function updateStats(){
+  if(workspaceMode==='scene'){
+    const status=getSceneStatus();
+    $('codeStats').textContent=status.count+' objects · '+(status.dirty?'unsaved':'saved');
+    $('fileState').textContent=status.dirty?'DRAFT':'SCENE';
+    return;
+  }
+
   const text=$('codeEditor').value;
   $('codeStats').textContent=(text.split('\n').length)+' lines · '+text.length+' chars';
   $('fileState').textContent=currentSource==='draft'?'DRAFT':'LIVE';
+}
+
+function updateRolePermissions(){
+  const codeEditable=canEditCode();
+  $('codeEditor').readOnly=!codeEditable;
+
+  [
+    'toolBotCount','toolMapHalf','toolPlayerSpeed','toolZoneSeconds','applyQuickTools'
+  ].forEach(id=>{
+    if($(id)) $(id).disabled=!codeEditable;
+  });
+
+  if(!codeEditable && workspaceMode==='code'){
+    $('cursorInfo').textContent='READ ONLY · '+String(access?.role||'player').toUpperCase();
+  }
+
+  setSceneEditorRole(access?.role||'tester');
+}
+
+function setWorkspaceMode(mode){
+  workspaceMode=mode==='scene'?'scene':'code';
+  const sceneMode=workspaceMode==='scene';
+
+  $('codePane').classList.toggle('hidden',sceneMode);
+  $('scenePane').classList.toggle('hidden',!sceneMode);
+  $('codeExplorer').classList.toggle('hidden',sceneMode);
+  $('sceneExplorer').classList.toggle('hidden',!sceneMode);
+  $('codeInspector').classList.toggle('hidden',sceneMode);
+  $('sceneInspector').classList.toggle('hidden',!sceneMode);
+
+  $('codeTab').classList.toggle('active',!sceneMode);
+  $('sceneTab').classList.toggle('active',sceneMode);
+  document.body.classList.toggle('scene-mode',sceneMode);
+
+  $('activeFileLabel').textContent=sceneMode?'S1 Green Valley':activeFile;
+  $('cursorInfo').textContent=sceneMode
+    ? (canEditScene()?'SCENE EDITOR · SELECT AN OBJECT':'SCENE VIEW · READ ONLY')
+    : (canEditCode()?'READY':'READ ONLY · '+String(access?.role||'player').toUpperCase());
+
+  setSceneEditorActive(sceneMode);
+  updateStats();
 }
 
 function parseQuickTools(){
@@ -58,7 +118,7 @@ function replaceGameNumber(text,name,value){
 
 async function loadFile(file,{ignoreDraft=false}={}){
   activeFile=file;
-  $('activeFileLabel').textContent=file;
+  $('activeFileLabel').textContent=workspaceMode==='scene'?'S1 Green Valley':file;
   document.querySelectorAll('.file-item').forEach(el=>el.classList.toggle('active',el.dataset.file===file));
 
   try{
@@ -95,7 +155,12 @@ async function refreshMembers(){
 }
 
 function escapeHtml(value){
-  return String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'","&#039;");
+  return String(value??'')
+    .replaceAll('&','&amp;')
+    .replaceAll('<','&lt;')
+    .replaceAll('>','&gt;')
+    .replaceAll('"','&quot;')
+    .replaceAll("'","&#039;");
 }
 
 async function boot(){
@@ -103,6 +168,8 @@ async function boot(){
   session=nextSession;
 
   if(!session){
+    $('studioShell').classList.add('hidden');
+    $('gate').classList.remove('hidden');
     setGate('Sign in with the game account that has Studio access.',true);
     return;
   }
@@ -117,6 +184,8 @@ async function boot(){
   const allowed=['owner','developer','builder','tester'].includes(access?.role);
 
   if(!allowed){
+    $('studioShell').classList.add('hidden');
+    $('gate').classList.remove('hidden');
     setGate('Access denied. This account is a normal PLAYER.');
     return;
   }
@@ -127,9 +196,25 @@ async function boot(){
   $('studioIdentity').textContent=(access.display_name||'PLAYER')+' · ID '+(access.player_id||'--------');
   $('ownerPanel').classList.toggle('hidden',access.role!=='owner');
 
+  if(!studioReady){
+    initSceneEditor({
+      role:access.role,
+      log,
+      onStateChange:()=>updateStats()
+    });
+    studioReady=true;
+  }else{
+    setSceneEditorRole(access.role);
+  }
+
+  updateRolePermissions();
+
   log('Studio access granted: '+String(access.role).toUpperCase(),'ok');
-  await loadFile('game.js');
+  await loadFile(activeFile);
   await refreshMembers();
+
+  if(access.role==='builder' || access.role==='tester') setWorkspaceMode('scene');
+  else setWorkspaceMode(workspaceMode);
 }
 
 $('studioSignIn').addEventListener('click',async()=>{
@@ -139,39 +224,80 @@ $('studioSignIn').addEventListener('click',async()=>{
   });
 });
 
+$('codeTab').addEventListener('click',()=>setWorkspaceMode('code'));
+$('sceneTab').addEventListener('click',()=>setWorkspaceMode('scene'));
+
 document.querySelectorAll('.file-item').forEach(btn=>{
-  btn.addEventListener('click',()=>loadFile(btn.dataset.file));
+  btn.addEventListener('click',()=>{
+    setWorkspaceMode('code');
+    loadFile(btn.dataset.file);
+  });
 });
 
 $('codeEditor').addEventListener('input',()=>{
+  if(!canEditCode()) return;
   currentSource='draft';
   updateStats();
   if(activeFile==='game.js') parseQuickTools();
 });
 
 $('codeEditor').addEventListener('keyup',()=>{
+  if(workspaceMode!=='code') return;
   const el=$('codeEditor');
   const before=el.value.slice(0,el.selectionStart);
   const line=before.split('\n').length;
   const col=before.length-before.lastIndexOf('\n');
-  $('cursorInfo').textContent='Ln '+line+', Col '+col;
+  $('cursorInfo').textContent=(canEditCode()?'':'READ ONLY · ')+'Ln '+line+', Col '+col;
 });
 
 $('saveDraftBtn').addEventListener('click',()=>{
+  if(workspaceMode==='scene'){
+    if(!canEditScene()){
+      log('Scene is read-only for TESTER role','error');
+      return;
+    }
+    saveSceneDraft();
+    updateStats();
+    return;
+  }
+
+  if(!canEditCode()){
+    log('Code is read-only for this role','error');
+    return;
+  }
+
   localStorage.setItem(draftKey(activeFile),$('codeEditor').value);
   currentSource='draft';
   updateStats();
-  log('Draft saved locally: '+activeFile,'ok');
+  log('Code draft saved locally: '+activeFile,'ok');
 });
 
 $('discardDraftBtn').addEventListener('click',()=>{
+  if(workspaceMode==='scene'){
+    reloadSceneDraft();
+    updateStats();
+    return;
+  }
+
   localStorage.removeItem(draftKey(activeFile));
   loadFile(activeFile,{ignoreDraft:true});
 });
 
-$('playTestBtn').addEventListener('click',()=>window.open('../','_blank','noopener'));
+$('playTestBtn').addEventListener('click',()=>{
+  if(canEditScene()) saveSceneDraft();
+
+  if(workspaceMode==='code' && currentSource==='draft'){
+    log('PLAY TEST uses the Scene draft. Code draft stays local until Publish is added.');
+  }
+
+  window.open('../?studioTest=1','_blank','noopener');
+});
 
 $('applyQuickTools').addEventListener('click',()=>{
+  if(!canEditCode()){
+    log('Quick Tools require OWNER or DEVELOPER role','error');
+    return;
+  }
   if(activeFile!=='game.js'){
     log('Quick Tools only work on game.js','error');
     return;
