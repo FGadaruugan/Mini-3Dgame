@@ -48,6 +48,7 @@ let remoteUserId = null;
 let remoteTarget = { x:0, y:0, z:0, yaw:0, hp:100 };
 let lastNetStateSent = 0;
 let brPhase='ground', plane=null, planeProgress=0, playerDropped=false, verticalVelocity=0;
+let matchCountdown=0, countdownLast=0;
 const planeStart=new THREE.Vector3(-285,72,-170);
 const planeEnd=new THREE.Vector3(285,72,170);
 const keys = new Set();
@@ -579,6 +580,7 @@ function jumpFromPlane(){
 function openParachute(){if(brPhase!=='falling')return;brPhase='parachute';verticalVelocity=-6;UI.jumpBtn?.classList.add('hidden');showMessage('PARACHUTE OPEN',600);}
 function updateFlight(dt){
   if(brPhase==='plane'){
+    if(!plane){ setupBattleRoyaleFlight(); return; }
     planeProgress=Math.min(1,planeProgress+dt/18);plane.position.lerpVectors(planeStart,planeEnd,planeProgress);
     for(const b of bots)if(!b.userData.dropped&&planeProgress>=b.userData.dropAt){b.userData.dropped=true;b.visible=true;b.position.copy(plane.position);b.position.y-=4;}
     if(!playerDropped){camera.position.lerp(plane.position.clone().add(new THREE.Vector3(-18,11,18)),.12);camera.lookAt(plane.position);}
@@ -665,10 +667,38 @@ function resetMatch() {
   player.visible=true; player.position.set(0,0,0); bodyYaw=wrapAngle(yaw+Math.PI); player.rotation.y=bodyYaw;
   if(lobbyStage)lobbyStage.visible=false;if(zoneRing)zoneRing.visible=true;
   for(let i=0;i<GAME.botCount;i++){const bot=makeBot(i);bot.position.set(0,72,0);bot.userData.name='BOT '+String(i+1).padStart(2,'0');bots.push(bot);}
-  setupBattleRoyaleFlight();
+  brPhase='countdown';
+  player.visible=true;
+  bots.forEach(b=>b.visible=false);
   UI.endOverlay.classList.add('hidden');
   UI.reloadState.textContent = '';
   updateHud();
+}
+
+function beginMatchCountdown(){
+  brPhase='countdown';
+  matchCountdown=3.15;
+  countdownLast=4;
+  player.visible=true;
+  player.position.set(0,0,0);
+  bots.forEach(b=>b.visible=false);
+  UI.planeJumpBtn?.classList.add('hidden');
+  UI.jumpBtn?.classList.add('hidden');
+  showMessage('3',100000);
+}
+
+function updateMatchCountdown(dt){
+  if(brPhase!=='countdown')return;
+  matchCountdown=Math.max(0,matchCountdown-dt);
+  const n=Math.ceil(matchCountdown);
+  if(n>0 && n!==countdownLast){
+    countdownLast=n;
+    showMessage(String(n),100000);
+  }
+  if(matchCountdown<=0){
+    showMessage('GO!',500);
+    setupBattleRoyaleFlight();
+  }
 }
 
 function setGameUiVisible(visible) {
@@ -698,6 +728,8 @@ function showLobby() {
   UI.planeJumpBtn?.classList.add('hidden');
   UI.jumpBtn?.classList.add('hidden');
   if(plane){scene.remove(plane);plane=null;}
+  matchCountdown=0;
+  showMessage('');
   reloading=false;
   mobile.firing=false;
   keys.clear();
@@ -799,6 +831,7 @@ async function startMatch() {
   UI.startOverlay.classList.add('hidden');
   UI.endOverlay.classList.add('hidden');
   setGameUiVisible(true);
+  beginMatchCountdown();
   clock.getDelta();
 
   if (matchMedia('(pointer:fine)').matches) {
@@ -1141,6 +1174,7 @@ function bindInputs() {
     ended=false;
     setGameUiVisible(true);
     UI.endOverlay.classList.add('hidden');
+    beginMatchCountdown();
     clock.getDelta();
   });
   UI.lobbyBtn.addEventListener('click', showLobby);
@@ -1589,6 +1623,7 @@ function showHitmarker() {
 }
 
 function drawMinimap() {
+  if(!UI.minimap || !player) return;
   const w=UI.minimap.width;
   const h=UI.minimap.height;
   const cx=w/2;
@@ -1637,11 +1672,17 @@ function animate() {
   if(started && !paused && !ended){
     elapsed+=dt;
     spawnProtection=Math.max(0,spawnProtection-dt);
-    if(!multiplayer&&brPhase!=='ground') updateFlight(dt); else updatePlayer(dt);
+    if(!multiplayer && brPhase==='countdown') {
+      updateMatchCountdown(dt);
+    } else if(!multiplayer && (brPhase==='plane'||brPhase==='falling'||brPhase==='parachute')) {
+      updateFlight(dt);
+    } else {
+      updatePlayer(dt);
+    }
     if (multiplayer) {
       updateRemotePlayer(dt);
       sendMultiplayerState();
-    } else {
+    } else if(brPhase!=='countdown') {
       updateBots(dt);
     }
     if(multiplayer||brPhase==='ground') updateZone(dt);
