@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
   <meta name="theme-color" content="#0b1017" />
   <title>Mini 3D Studio</title>
-  <link rel="stylesheet" href="./studio.css?v=20261004-scene1" />
+  <link rel="stylesheet" href="./studio.css?v=20261004-v1" />
   <script type="importmap">
     {
       "imports": {
@@ -37,10 +37,16 @@
       </div>
 
       <div class="toolbar">
-        <button id="playTestBtn">▶ PLAY TEST</button>
-        <button id="saveDraftBtn">SAVE DRAFT</button>
-        <button id="discardDraftBtn">RELOAD</button>
-        <button class="disabled" disabled>PUBLISH · NEXT</button>
+        <button id="playTestBtn" class="accent-action">▶ PLAY TEST</button>
+        <button id="saveDraftBtn">SAVE</button>
+        <button id="undoBtn" title="Ctrl+Z">UNDO</button>
+        <button id="redoBtn" title="Ctrl+Y">REDO</button>
+        <button id="copyCurrentBtn">COPY CURRENT</button>
+        <button id="snapshotBtn">SNAPSHOT</button>
+        <button id="versionsBtn">VERSIONS</button>
+        <button id="exportBtn">EXPORT BACKUP</button>
+        <button id="importBtn">IMPORT</button>
+        <input id="importFileInput" type="file" accept=".json,application/json" class="hidden" />
       </div>
 
       <div class="role-chip" id="roleChip">ROLE</div>
@@ -51,20 +57,32 @@
         <div class="panel-title"><span>EXPLORER</span><b id="fileState">LIVE</b></div>
 
         <div id="codeExplorer">
+          <div class="explorer-search">
+            <input id="codeFindInput" type="search" placeholder="Find in file…" />
+            <button id="codeFindBtn">FIND</button>
+          </div>
+
           <div class="tree-title">GAME FILES</div>
           <button class="file-item active" data-file="game.js">JS <span>game.js</span></button>
+          <button class="file-item" data-file="game-config.js">JS <span>game-config.js</span></button>
+          <button class="file-item" data-file="scene-data.js">JS <span>scene-data.js</span></button>
+          <button class="file-item" data-file="dev-tools.js">JS <span>dev-tools.js</span></button>
           <button class="file-item" data-file="style.css">CSS <span>style.css</span></button>
           <button class="file-item" data-file="profile.js">JS <span>profile.js</span></button>
           <button class="file-item" data-file="index.html">HTML <span>index.html</span></button>
 
-          <div class="tree-title space">WORLD SYSTEMS</div>
-          <div class="system-row"><span>◉</span><b>Map</b><small>480 × 480</small></div>
-          <div class="system-row"><span>◆</span><b>Bots</b><small>29</small></div>
-          <div class="system-row"><span>▣</span><b>Cars</b><small>6</small></div>
-          <div class="system-row"><span>✦</span><b>Loot</b><small>S1</small></div>
+          <div class="tree-title space">PROJECT</div>
+          <div class="system-row"><span>◉</span><b>Environment</b><small>Development</small></div>
+          <div class="system-row"><span>◆</span><b>Players</b><small>1 + 29</small></div>
+          <div class="system-row"><span>▣</span><b>Scene</b><small>S1</small></div>
+          <div class="system-row"><span>✦</span><b>Backend</b><small>Supabase</small></div>
         </div>
 
         <div id="sceneExplorer" class="hidden">
+          <div class="explorer-search">
+            <input id="sceneSearch" type="search" placeholder="Search objects…" />
+          </div>
+
           <div class="scene-add-row">
             <button id="addBoxBtn">+ BOX</button>
             <button id="addTreeBtn">+ TREE</button>
@@ -73,12 +91,22 @@
           <div class="tree-title">SCENE OBJECTS <span id="sceneObjectCount">0</span></div>
           <div id="sceneObjectList" class="scene-object-list"></div>
         </div>
+
+        <div id="dataExplorer" class="hidden">
+          <div class="tree-title">DATA MODULE</div>
+          <div class="system-row"><span>⚙</span><b>Game</b><small>Core</small></div>
+          <div class="system-row"><span>▰</span><b>Weapons</b><small>5</small></div>
+          <div class="system-row"><span>▣</span><b>Car</b><small>Physics</small></div>
+          <div class="system-row"><span>✦</span><b>Loot</b><small>Counts</small></div>
+          <div class="data-explorer-note">COPY CURRENT generates the complete <code>game-config.js</code> module.</div>
+        </div>
       </aside>
 
       <section class="editor panel">
         <div class="editor-tabs">
           <button id="codeTab" class="editor-tab active">CODE</button>
           <button id="sceneTab" class="editor-tab">SCENE</button>
+          <button id="dataTab" class="editor-tab">DATA</button>
           <span id="activeFileLabel">game.js</span>
         </div>
 
@@ -89,19 +117,52 @@
         <div id="scenePane" class="editor-pane scene-pane hidden">
           <div class="scene-toolbar" id="sceneToolbar">
             <div class="scene-tools">
-              <button id="sceneSelectMode" class="active" title="Select">SELECT</button>
-              <button id="sceneMoveMode" title="Move">MOVE</button>
-              <button id="sceneRotateMode" title="Rotate">ROTATE</button>
-              <button id="sceneScaleMode" title="Scale">SCALE</button>
+              <button id="sceneSelectMode" class="active">SELECT</button>
+              <button id="sceneMoveMode">MOVE</button>
+              <button id="sceneRotateMode">ROTATE</button>
+              <button id="sceneScaleMode">SCALE</button>
             </div>
+
+            <div class="scene-snap-tools">
+              <label>MOVE
+                <select id="sceneTranslateSnap">
+                  <option value="0">FREE</option>
+                  <option value="0.5" selected>0.5</option>
+                  <option value="1">1</option>
+                  <option value="5">5</option>
+                </select>
+              </label>
+              <label>ROTATE
+                <select id="sceneRotateSnap">
+                  <option value="0">FREE</option>
+                  <option value="5" selected>5°</option>
+                  <option value="15">15°</option>
+                  <option value="45">45°</option>
+                </select>
+              </label>
+              <label>SCALE
+                <select id="sceneScaleSnap">
+                  <option value="0">FREE</option>
+                  <option value="0.1" selected>0.1</option>
+                  <option value="0.5">0.5</option>
+                  <option value="1">1</option>
+                </select>
+              </label>
+            </div>
+
             <div class="scene-tools">
               <button id="sceneFocusBtn">FOCUS</button>
               <button id="sceneDuplicateBtn">DUPLICATE</button>
               <button id="sceneDeleteBtn" class="danger">DELETE</button>
             </div>
           </div>
+
           <div id="sceneViewport" class="scene-viewport"></div>
-          <div class="viewport-help">Drag empty space = orbit · Wheel/pinch = zoom · Select an object to edit it</div>
+          <div class="viewport-help">Empty drag = orbit · Wheel/pinch = zoom · W/E/R-style tools are in the toolbar</div>
+        </div>
+
+        <div id="dataPane" class="editor-pane data-pane hidden">
+          <div id="dataEditorHost"></div>
         </div>
 
         <div class="statusbar">
@@ -113,7 +174,7 @@
       <aside class="inspector panel">
         <div id="codeInspector">
           <div class="panel-title"><span>QUICK TOOLS</span><b>S1</b></div>
-          <p class="inspector-note">Quick Tools edit the current <code>game.js</code> draft. Code drafts stay local until Publish is added.</p>
+          <p class="inspector-note">Quick Tools edit the current <code>game.js</code> draft. For long-term tuning use the DATA tab.</p>
 
           <label>Bot count
             <input id="toolBotCount" type="number" min="1" max="99" value="29" />
@@ -128,6 +189,11 @@
             <input id="toolZoneSeconds" type="number" min="30" max="1800" step="10" value="300" />
           </label>
           <button id="applyQuickTools" class="primary full">APPLY TO CODE</button>
+
+          <div class="shortcut-card">
+            <strong>SHORTCUTS</strong>
+            <small>Ctrl+S Save · Ctrl+Z Undo · Ctrl+Y Redo · Delete Scene object · Ctrl+D Duplicate · F Focus</small>
+          </div>
 
           <div id="ownerPanel" class="owner-panel hidden">
             <div class="tree-title">DEVELOPER ACCESS</div>
@@ -145,9 +211,7 @@
 
         <div id="sceneInspector" class="hidden">
           <div class="panel-title"><span>PROPERTIES</span><b id="selectedType">NONE</b></div>
-          <div id="noSceneSelection" class="empty-inspector">
-            Select an object in the viewport or Explorer.
-          </div>
+          <div id="noSceneSelection" class="empty-inspector">Select an object in the viewport or Explorer.</div>
 
           <div id="sceneProperties" class="hidden">
             <label>Name
@@ -198,20 +262,55 @@
           </div>
 
           <div class="scene-draft-box">
-            <strong>SCENE DRAFT</strong>
-            <small>Save Draft → PLAY TEST uses this scene on this device only.</small>
-            <button id="resetSceneBtn">RESET TO S1 MAP</button>
+            <strong>VALIDATION</strong>
+            <div id="sceneValidation"></div>
           </div>
+
+          <div class="scene-draft-box">
+            <strong>SCENE DATA</strong>
+            <small>Hidden/Locked are editor-only. COPY CURRENT exports clean <code>scene-data.js</code>.</small>
+            <button id="resetSceneBtn">RESET TO LIVE S1 MAP</button>
+          </div>
+        </div>
+
+        <div id="dataInspector" class="hidden">
+          <div class="panel-title"><span>DATA WORKFLOW</span><b>MODULE</b></div>
+          <div class="workflow-card">
+            <strong>game-config.js</strong>
+            <small>1. Edit values here<br>2. SAVE<br>3. COPY CURRENT<br>4. Replace <code>game-config.js</code></small>
+          </div>
+          <div class="workflow-card">
+            <strong>SAFE TESTING</strong>
+            <small>PLAY TEST opens Studio test mode. The public game does not read your local draft automatically.</small>
+          </div>
+          <button id="resetDataBtn" class="secondary-action full">RESET DATA TO LIVE</button>
         </div>
       </aside>
     </div>
 
     <section class="console panel">
-      <div class="panel-title"><span>CONSOLE</span><button id="clearConsole">CLEAR</button></div>
+      <div class="panel-title">
+        <span>CONSOLE</span>
+        <div class="console-actions">
+          <span id="studioHealth">READY</span>
+          <button id="clearConsole">CLEAR</button>
+        </div>
+      </div>
       <div id="consoleOutput"></div>
     </section>
   </main>
 
-  <script type="module" src="./studio.js?v=20261004-scene1"></script>
+  <div id="versionsOverlay" class="studio-modal hidden">
+    <div class="studio-modal-card">
+      <div class="studio-modal-head">
+        <div><small>LOCAL HISTORY</small><strong>STUDIO SNAPSHOTS</strong></div>
+        <button id="versionsClose">×</button>
+      </div>
+      <div id="versionsList" class="versions-list"></div>
+      <div class="modal-note">Snapshots are stored only in this browser. EXPORT BACKUP creates a portable JSON backup.</div>
+    </div>
+  </div>
+
+  <script type="module" src="./studio.js?v=20261004-v1"></script>
 </body>
 </html>
