@@ -472,7 +472,7 @@ function cssRule(meta,cfg,device){
     width: ${round(cfg.w)}% !important;
     height: ${round(cfg.h)}% !important;
     opacity: ${round(cfg.opacity/100)} !important;
-    transform: scale(${round(cfg.scale/100)}) !important;
+    scale: ${round(cfg.scale/100)} !important;
     transform-origin: top left !important;
     font-size: ${round(cfg.font/100)}em !important;
     border-radius: ${round(cfg.radius)}px !important;
