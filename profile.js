@@ -444,10 +444,14 @@ if (!configured) {
   supabase = createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
 
   ui.signIn?.addEventListener('click',async()=>{
-    await supabase.auth.signInWithOAuth({
+    setStatus('OPENING GOOGLE SIGN-IN…');
+    const { error } = await supabase.auth.signInWithOAuth({
       provider:'google',
       options:{ redirectTo:window.location.origin + window.location.pathname }
     });
+    if (error) {
+      setStatus('GOOGLE LOGIN NOT CONFIGURED', 'error');
+    }
   });
 
   ui.signOut?.addEventListener('click',async()=>{
