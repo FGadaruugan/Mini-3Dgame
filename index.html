@@ -145,11 +145,32 @@
         </section>
       </div>
 
-      <div class="lobby-footer">
-        <span>Mini-3Dgame</span>
-        <button id="fullscreenBtn" class="fullscreen-btn">⛶ FULLSCREEN</button>
-        <span>Mobile + PC</span>
-      </div>
+      <button id="fullscreenBtn" class="lobby-fullscreen" aria-label="Fullscreen">⛶</button>
+
+      <nav class="lobby-bottom-nav" aria-label="Lobby menu">
+        <button class="lobby-nav-item" data-lobby-tab="theme">
+          <span class="lobby-nav-icon">◈</span>
+          <span>THEME</span>
+        </button>
+        <button class="lobby-nav-item active" data-lobby-tab="season">
+          <span class="lobby-nav-icon">★</span>
+          <span>S32/SEASON</span>
+        </button>
+        <button class="lobby-nav-item" data-lobby-tab="workshop">
+          <span class="lobby-nav-icon">⚒</span>
+          <span>WORKSHOP</span>
+        </button>
+        <button class="lobby-nav-item" data-lobby-tab="cards">
+          <span class="lobby-nav-icon">▣</span>
+          <span>CARDS</span>
+        </button>
+        <button class="lobby-nav-item" data-lobby-tab="inventory">
+          <span class="lobby-nav-icon">▤</span>
+          <span>INVENTORY</span>
+        </button>
+      </nav>
+
+      <div id="lobbyTabToast" class="lobby-tab-toast hidden"></div>
     </div>
 
     <div id="endOverlay" class="overlay hidden">
