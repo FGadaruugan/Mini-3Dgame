@@ -17,7 +17,8 @@ const UI = {
   armorValue: $('armorValue'), bandageValue: $('bandageValue'), backpackCapacity: $('backpackCapacity'),
   ammo556Value: $('ammo556Value'), ammo9Value: $('ammo9Value'), useBandageBag: $('useBandageBag'),
   lootPrompt: $('lootPrompt'), lootPromptText: $('lootPromptText'), pickupBtn: $('pickupBtn'),
-  pickupMobileBtn: $('pickupMobileBtn'), bandageBtn: $('bandageBtn')
+  pickupMobileBtn: $('pickupMobileBtn'), bandageBtn: $('bandageBtn'),
+  vehicleHud: $('vehicleHud'), vehicleSpeed: $('vehicleSpeed'), driveBtn: $('driveBtn'), driveMobileBtn: $('driveMobileBtn')
 };
 const mm = UI.minimap.getContext('2d');
 
@@ -61,6 +62,11 @@ let activeWeaponSlot = 0;
 let backpackOpen = false;
 let backpackPauseRestore = false;
 let inventory = createEmptyInventory();
+
+let cars = [];
+let activeCar = null;
+let nearestCar = null;
+let lastCarToggleAt = 0;
 
 function createEmptyInventory() {
   return {
@@ -470,7 +476,7 @@ function autoPickupNearbyLoot() {
 }
 
 function updateLootInteraction() {
-  if(multiplayer || brPhase!=='ground' || backpackOpen){
+  if(multiplayer || brPhase!=='ground' || backpackOpen || activeCar){
     nearestLoot=null;
     UI.lootPrompt?.classList.add('hidden');
     UI.pickupMobileBtn?.classList.add('hidden');
@@ -536,7 +542,7 @@ function useBandage() {
 }
 
 function openBackpack() {
-  if(!started || ended || brPhase!=='ground') return;
+  if(!started || ended || brPhase!=='ground' || activeCar) return;
   backpackOpen=true;
   backpackPauseRestore=paused;
   if(!multiplayer) paused=true;
@@ -558,6 +564,352 @@ function updateLootAnimations(dt) {
     item.rotation.y+=dt*.7;
     item.position.y=.45+Math.sin(t*2+i*.7)*.08;
   }
+}
+
+function createCar(color=0x536779) {
+  const car=new THREE.Group();
+
+  const bodyMat=new THREE.MeshStandardMaterial({color,roughness:.58,metalness:.16});
+  const darkMat=new THREE.MeshStandardMaterial({color:0x1c2228,roughness:.72});
+  const glassMat=new THREE.MeshStandardMaterial({
+    color:0x7ca0b8,roughness:.24,metalness:.12,transparent:true,opacity:.72
+  });
+
+  const body=new THREE.Mesh(new THREE.BoxGeometry(2.5,.78,4.7),bodyMat);
+  body.position.y=.82;
+  body.castShadow=matchMedia('(pointer:fine)').matches;
+  car.add(body);
+
+  const cabin=new THREE.Mesh(new THREE.BoxGeometry(2.02,.82,2.45),glassMat);
+  cabin.position.set(0,1.48,-.18);
+  cabin.castShadow=false;
+  car.add(cabin);
+
+  const bumperFront=new THREE.Mesh(new THREE.BoxGeometry(2.55,.24,.28),darkMat);
+  bumperFront.position.set(0,.62,2.43);
+  car.add(bumperFront);
+
+  const bumperRear=bumperFront.clone();
+  bumperRear.position.z=-2.43;
+  car.add(bumperRear);
+
+  const wheelGeo=new THREE.CylinderGeometry(.42,.42,.30,12);
+  const wheelPositions=[
+    [-1.28,.48,1.48],[1.28,.48,1.48],
+    [-1.28,.48,-1.48],[1.28,.48,-1.48]
+  ];
+
+  wheelPositions.forEach(([x,y,z])=>{
+    const wheel=new THREE.Mesh(wheelGeo,darkMat);
+    wheel.rotation.z=Math.PI/2;
+    wheel.position.set(x,y,z);
+    car.add(wheel);
+  });
+
+  car.userData.speed=0;
+  car.userData.maxSpeed=31;
+  car.userData.reverseSpeed=12;
+  car.userData.acceleration=21;
+  car.userData.turnRate=1.55;
+  car.userData.vehicle=true;
+
+  scene.add(car);
+  return car;
+}
+
+function clearCars() {
+  if(activeCar){
+    player.visible=true;
+    activeCar=null;
+  }
+
+  cars.forEach(car=>scene?.remove(car));
+  cars=[];
+  nearestCar=null;
+
+  UI.vehicleHud?.classList.add('hidden');
+  UI.driveBtn?.classList.add('hidden');
+  UI.driveMobileBtn?.classList.add('hidden');
+
+  if(UI.driveBtn) UI.driveBtn.textContent='DRIVE';
+  if(UI.driveMobileBtn) UI.driveMobileBtn.textContent='DRIVE';
+}
+
+function findSafeCarSpawn(x,z) {
+  const attempts=[
+    [x,z],[x+7,z],[x-7,z],[x,z+8],[x,z-8],
+    [x+12,z+10],[x-12,z-10]
+  ];
+
+  for(const [px,pz] of attempts){
+    if(
+      Math.abs(px)<GAME.mapHalf-5 &&
+      Math.abs(pz)<GAME.mapHalf-5 &&
+      !blocked(px,pz,2.7)
+    ){
+      return new THREE.Vector3(px,0,pz);
+    }
+  }
+
+  return randomGroundPoint(34);
+}
+
+function spawnCars() {
+  clearCars();
+
+  const spawns=[
+    [0,100,0],
+    [0,-115,Math.PI],
+    [100,0,Math.PI/2],
+    [-108,0,-Math.PI/2],
+    [125,-105,0],
+    [-125,100,Math.PI]
+  ];
+  const colors=[0x526b7c,0x7b5145,0x4f6652,0x77704a,0x53536f,0x6f4b55];
+
+  spawns.forEach(([x,z,rot],index)=>{
+    const car=createCar(colors[index%colors.length]);
+    const p=findSafeCarSpawn(x,z);
+    car.position.copy(p);
+    car.rotation.y=rot;
+    cars.push(car);
+  });
+}
+
+function findNearestCar(maxDist=6.2) {
+  let best=null;
+  let bestDist=maxDist;
+
+  for(const car of cars){
+    if(!car?.visible) continue;
+    const dist=Math.hypot(
+      car.position.x-player.position.x,
+      car.position.z-player.position.z
+    );
+
+    if(dist<bestDist){
+      best=car;
+      bestDist=dist;
+    }
+  }
+
+  return best;
+}
+
+function setVehicleActionVisible(visible,label='DRIVE') {
+  if(UI.driveBtn){
+    UI.driveBtn.textContent=label;
+    UI.driveBtn.classList.toggle('hidden',!visible);
+  }
+  if(UI.driveMobileBtn){
+    UI.driveMobileBtn.textContent=label;
+    UI.driveMobileBtn.classList.toggle('hidden',!visible);
+  }
+}
+
+function updateCarInteraction() {
+  if(multiplayer || brPhase!=='ground' || backpackOpen || ended){
+    nearestCar=null;
+    if(!activeCar) setVehicleActionVisible(false);
+    return;
+  }
+
+  if(activeCar){
+    nearestCar=activeCar;
+    setVehicleActionVisible(true,'EXIT');
+    UI.vehicleHud?.classList.remove('hidden');
+    return;
+  }
+
+  nearestCar=findNearestCar(6.2);
+  setVehicleActionVisible(Boolean(nearestCar),'DRIVE');
+  UI.vehicleHud?.classList.add('hidden');
+}
+
+function enterCar(car=nearestCar) {
+  if(
+    !car ||
+    activeCar ||
+    multiplayer ||
+    brPhase!=='ground' ||
+    backpackOpen ||
+    ended
+  ) return;
+
+  activeCar=car;
+  nearestCar=car;
+  reloading=false;
+  mobile.firing=false;
+  aiming=false;
+
+  player.visible=false;
+  player.position.copy(car.position);
+  player.position.y=0;
+  bodyYaw=car.rotation.y;
+
+  UI.reloadState.textContent='';
+  UI.lootPrompt?.classList.add('hidden');
+  UI.pickupMobileBtn?.classList.add('hidden');
+  UI.vehicleHud?.classList.remove('hidden');
+  setVehicleActionVisible(true,'EXIT');
+
+  showMessage('DRIVING · F / EXIT TO LEAVE',700);
+}
+
+function exitCar() {
+  if(!activeCar) return;
+
+  const car=activeCar;
+  const side=new THREE.Vector3(3.4,0,0).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);
+  const back=new THREE.Vector3(0,0,-4.0).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);
+  const candidates=[
+    car.position.clone().add(side),
+    car.position.clone().sub(side),
+    car.position.clone().add(back)
+  ];
+
+  let exitPos=candidates.find(p=>!blocked(p.x,p.z,1.15));
+  if(!exitPos) exitPos=car.position.clone().add(new THREE.Vector3(0,0,4.5));
+
+  activeCar=null;
+  nearestCar=null;
+  player.visible=true;
+  player.position.set(
+    THREE.MathUtils.clamp(exitPos.x,-GAME.mapHalf+2,GAME.mapHalf-2),
+    0,
+    THREE.MathUtils.clamp(exitPos.z,-GAME.mapHalf+2,GAME.mapHalf-2)
+  );
+
+  yaw=car.rotation.y+Math.PI;
+  bodyYaw=wrapAngle(yaw+Math.PI);
+  player.rotation.y=bodyYaw;
+
+  UI.vehicleHud?.classList.add('hidden');
+  setVehicleActionVisible(false);
+  showMessage('EXITED CAR',450);
+
+  updateLootInteraction();
+  updateCarInteraction();
+}
+
+function toggleCar() {
+  const now=performance.now();
+  if(now-lastCarToggleAt<220) return;
+  lastCarToggleAt=now;
+
+  if(activeCar) exitCar();
+  else {
+    nearestCar=findNearestCar(6.5);
+    if(nearestCar) enterCar(nearestCar);
+    else showMessage('MOVE CLOSER TO CAR',450);
+  }
+}
+
+function carBlocked(car,nx,nz) {
+  if(blocked(nx,nz,2.15)) return true;
+
+  for(const other of cars){
+    if(other===car || !other.visible) continue;
+    if(Math.hypot(other.position.x-nx,other.position.z-nz)<4.0) return true;
+  }
+
+  return false;
+}
+
+function updateCar(dt) {
+  if(!activeCar) return;
+
+  const car=activeCar;
+  let throttle=0;
+  let steer=0;
+
+  if(keys.has('KeyW')) throttle+=1;
+  if(keys.has('KeyS')) throttle-=1;
+  if(keys.has('KeyA')) steer-=1;
+  if(keys.has('KeyD')) steer+=1;
+
+  throttle+=THREE.MathUtils.clamp(-mobile.moveY,-1,1);
+  steer+=THREE.MathUtils.clamp(mobile.moveX,-1,1);
+  throttle=THREE.MathUtils.clamp(throttle,-1,1);
+  steer=THREE.MathUtils.clamp(steer,-1,1);
+
+  let speed=car.userData.speed||0;
+
+  if(throttle>0.05){
+    speed+=car.userData.acceleration*throttle*dt;
+  } else if(throttle<-.05){
+    speed+=car.userData.acceleration*.72*throttle*dt;
+  } else {
+    speed*=Math.exp(-2.35*dt);
+    if(Math.abs(speed)<.05) speed=0;
+  }
+
+  speed=THREE.MathUtils.clamp(
+    speed,
+    -car.userData.reverseSpeed,
+    car.userData.maxSpeed
+  );
+
+  if(Math.abs(speed)>.25 && Math.abs(steer)>.02){
+    const directionFactor=THREE.MathUtils.clamp(speed/8,-1,1);
+    car.rotation.y+=steer*car.userData.turnRate*dt*directionFactor;
+  }
+
+  const forward=new THREE.Vector3(
+    Math.sin(car.rotation.y),
+    0,
+    Math.cos(car.rotation.y)
+  );
+
+  const nx=THREE.MathUtils.clamp(
+    car.position.x+forward.x*speed*dt,
+    -GAME.mapHalf+3,
+    GAME.mapHalf-3
+  );
+  const nz=THREE.MathUtils.clamp(
+    car.position.z+forward.z*speed*dt,
+    -GAME.mapHalf+3,
+    GAME.mapHalf-3
+  );
+
+  if(!carBlocked(car,nx,nz)){
+    car.position.x=nx;
+    car.position.z=nz;
+  } else {
+    speed*=-.16;
+  }
+
+  car.userData.speed=speed;
+
+  player.position.copy(car.position);
+  player.position.y=0;
+  bodyYaw=car.rotation.y;
+
+  if(UI.vehicleSpeed){
+    UI.vehicleSpeed.textContent=Math.round(Math.abs(speed)*5.4);
+  }
+
+  updateCarInteraction();
+}
+
+function updateCarCamera(dt) {
+  if(!activeCar) return;
+
+  const forward=new THREE.Vector3(
+    Math.sin(activeCar.rotation.y),
+    0,
+    Math.cos(activeCar.rotation.y)
+  );
+  const target=activeCar.position.clone().add(new THREE.Vector3(0,1.25,0));
+  const desired=target.clone()
+    .addScaledVector(forward,-9.5)
+    .add(new THREE.Vector3(0,4.9,0));
+
+  const blend=1-Math.exp(-6.5*dt);
+  camera.position.lerp(desired,blend);
+  camera.lookAt(target.clone().addScaledVector(forward,5));
+  camera.fov=THREE.MathUtils.lerp(camera.fov,74,.12);
+  camera.updateProjectionMatrix();
 }
 
 init();
@@ -1264,6 +1616,7 @@ function resetMatch(options={}) {
   const battleRoyale=options.battleRoyale!==false;
 
   if(plane){ scene.remove(plane); plane=null; }
+  clearCars();
   UI.planeJumpBtn?.classList.add('hidden');
   UI.jumpBtn?.classList.add('hidden');
   if (UI.jumpBtn) UI.jumpBtn.textContent='JUMP';
@@ -1328,6 +1681,7 @@ function resetMatch(options={}) {
       bots.push(bot);
     }
     spawnBattleRoyaleLoot();
+    spawnCars();
   } else {
     brPhase='ground';
   }
@@ -1389,6 +1743,7 @@ function showLobby() {
   UI.jumpBtn?.classList.add('hidden');
   if(plane){scene.remove(plane);plane=null;}
   clearLoot();
+  clearCars();
   closeBackpack();
   reloading=false;
   mobile.firing=false;
@@ -1708,6 +2063,7 @@ function bindInputs() {
     if (e.code === 'Digit2') setActiveWeaponSlot(1);
     if (e.code === 'KeyB') backpackOpen ? closeBackpack() : openBackpack();
     if (e.code === 'KeyH') useBandage();
+    if (e.code === 'KeyF') toggleCar();
     if (e.code === 'KeyP' || e.code === 'Escape') togglePause();
     if(e.code==='Space'){
       if(brPhase==='plane') jumpFromPlane();
@@ -1873,6 +2229,16 @@ function bindInputs() {
   UI.backpackClose?.addEventListener('click',closeBackpack);
   UI.useBandageBag?.addEventListener('click',useBandage);
   UI.backpackOverlay?.addEventListener('click',e=>{if(e.target===UI.backpackOverlay)closeBackpack();});
+
+  const handleDriveInput=e=>{
+    e?.preventDefault?.();
+    e?.stopPropagation?.();
+    toggleCar();
+  };
+  UI.driveBtn?.addEventListener('pointerdown',handleDriveInput);
+  UI.driveBtn?.addEventListener('click',handleDriveInput);
+  UI.driveMobileBtn?.addEventListener('pointerdown',handleDriveInput);
+  UI.driveMobileBtn?.addEventListener('click',handleDriveInput);
   UI.planeJumpBtn?.addEventListener('pointerdown',e=>{
     e.preventDefault();
     e.stopPropagation();
@@ -1992,7 +2358,7 @@ function togglePause() {
 }
 
 function beginReload() {
-  if (!started || paused || ended || reloading) return;
+  if (!started || paused || ended || reloading || activeCar) return;
   if (!multiplayer && brPhase!=='ground') return;
 
   const slot=getActiveWeaponSlot();
@@ -2026,7 +2392,7 @@ function beginReload() {
 }
 
 function shoot() {
-  if (!started || paused || ended || reloading) return;
+  if (!started || paused || ended || reloading || activeCar) return;
   if (!multiplayer && brPhase!=='ground') return;
   const slot=getActiveWeaponSlot();
   const weapon=getWeaponDef(slot);
@@ -2178,6 +2544,7 @@ function updatePlayer(dt) {
   player.rotation.y=bodyYaw;
 
   updateLootInteraction();
+  updateCarInteraction();
   if(mobile.firing) shoot();
 }
 
@@ -2465,6 +2832,18 @@ function drawMinimap() {
     mm.arc(cx+b.position.x*scale,cy+b.position.z*scale,3.4,0,Math.PI*2);
     mm.fill();
   });
+
+  if(!multiplayer){
+    mm.fillStyle='#68c7ff';
+    cars.forEach(car=>{
+      mm.fillRect(
+        cx+car.position.x*scale-2.5,
+        cy+car.position.z*scale-2.5,
+        5,
+        5
+      );
+    });
+  }
 }
 
 function onResize() {
@@ -2507,7 +2886,8 @@ function animate() {
         updateFlight(dt);
       } else if(brPhase==='ground'){
         zoneElapsed+=dt;
-        updatePlayer(dt);
+        if(activeCar) updateCar(dt);
+        else updatePlayer(dt);
         updateZone(dt);
       }
 
@@ -2518,15 +2898,17 @@ function animate() {
     updateTracers(dt);
     updateLootAnimations(dt);
 
-    // Plane phase owns the camera. Falling/parachute use the normal follow camera.
-    if(multiplayer || brPhase!=='plane') updateCamera();
+    // Plane owns its camera; a driven car uses a chase camera.
+    if(activeCar && !multiplayer) updateCarCamera(dt);
+    else if(multiplayer || brPhase!=='plane') updateCamera();
 
     updateHud();
     drawMinimap();
   } else if(!started) {
     updateLobby(dt);
   } else {
-    updateCamera();
+    if(activeCar && !multiplayer) updateCarCamera(dt);
+    else updateCamera();
     drawMinimap();
   }
 
