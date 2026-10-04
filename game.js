@@ -53,6 +53,7 @@ const WEAPONS = {
 const BACKPACK_MAX = 12;
 let lootPickups = [];
 let nearestLoot = null;
+let lastPickupAt = 0;
 let activeWeaponSlot = 0;
 let backpackOpen = false;
 let backpackPauseRestore = false;
@@ -250,6 +251,20 @@ function createLootMesh(kind,payload) {
   }
   mesh.castShadow=false;
   group.add(mesh);
+
+  const ring=new THREE.Mesh(
+    new THREE.RingGeometry(.55,.72,18),
+    new THREE.MeshBasicMaterial({
+      color:kind==='weapon'?0xf1c84b:kind==='ammo'?0x9bd36a:kind==='bandage'?0xffffff:0x65b9ff,
+      transparent:true,
+      opacity:.78,
+      side:THREE.DoubleSide
+    })
+  );
+  ring.rotation.x=-Math.PI/2;
+  ring.position.y=-.38;
+  group.add(ring);
+
   group.position.y=.45;
   group.userData.loot={kind,...payload};
   group.className='loot-pickup';
@@ -288,6 +303,25 @@ function describeLoot(data) {
   return 'ITEM';
 }
 
+function findNearestLoot(maxDist=5.5) {
+  let best=null;
+  let bestDist=maxDist;
+
+  for(const item of lootPickups){
+    if(!item?.visible || !item.userData?.loot) continue;
+    const dist=Math.hypot(
+      item.position.x-player.position.x,
+      item.position.z-player.position.z
+    );
+    if(dist<=bestDist){
+      best=item;
+      bestDist=dist;
+    }
+  }
+
+  return best;
+}
+
 function updateLootInteraction() {
   if(multiplayer || brPhase!=='ground' || backpackOpen){
     nearestLoot=null;
@@ -296,20 +330,10 @@ function updateLootInteraction() {
     return;
   }
 
-  let best=null;
-  let bestDist=3.4;
-  for(const item of lootPickups){
-    if(!item.visible) continue;
-    const dist=Math.hypot(item.position.x-player.position.x,item.position.z-player.position.z);
-    if(dist<bestDist){
-      best=item;
-      bestDist=dist;
-    }
-  }
+  nearestLoot=findNearestLoot(5.5);
 
-  nearestLoot=best;
-  if(best){
-    UI.lootPromptText.textContent=describeLoot(best.userData.loot);
+  if(nearestLoot){
+    UI.lootPromptText.textContent=describeLoot(nearestLoot.userData.loot);
     UI.lootPrompt.classList.remove('hidden');
     UI.pickupMobileBtn?.classList.remove('hidden');
   } else {
@@ -326,16 +350,32 @@ function removeLootItem(item) {
 }
 
 function pickupNearestLoot() {
-  if(!nearestLoot || brPhase!=='ground' || multiplayer) return;
-  const item=nearestLoot;
+  if(brPhase!=='ground' || multiplayer || backpackOpen) return;
+
+  const now=performance.now();
+  if(now-lastPickupAt<180) return;
+  lastPickupAt=now;
+
+  const item=findNearestLoot(5.8);
+  if(!item){
+    showMessage('MOVE CLOSER TO ITEM',450);
+    return;
+  }
+
+  nearestLoot=item;
   const data=item.userData.loot;
+  if(!data) return;
 
   if(data.kind==='weapon'){
     let slotIndex=inventory.weapons.findIndex(x=>!x);
     if(slotIndex<0) slotIndex=activeWeaponSlot;
 
     const old=inventory.weapons[slotIndex];
-    inventory.weapons[slotIndex]={id:data.weaponId,magAmmo:0};
+    const def=WEAPONS[data.weaponId];
+    const reserveAmmo=inventory.ammo[def.ammoType]||0;
+    const initialLoad=Math.min(def.mag,reserveAmmo);
+    inventory.weapons[slotIndex]={id:data.weaponId,magAmmo:initialLoad};
+    inventory.ammo[def.ammoType]-=initialLoad;
     setActiveWeaponSlot(slotIndex);
     removeLootItem(item);
     showMessage(old ? 'SWAPPED → '+WEAPONS[data.weaponId].name : 'PICKED '+WEAPONS[data.weaponId].name,650);
@@ -1014,6 +1054,7 @@ function updateFlight(dt) {
       UI.jumpBtn?.classList.add('hidden');
       if (UI.jumpBtn) UI.jumpBtn.textContent='JUMP';
       showMessage('LANDED · SURVIVE',800);
+      updateLootInteraction();
     }
   }
 }
@@ -1690,8 +1731,15 @@ function bindInputs() {
     beginReload();
   });
 
-  UI.pickupBtn?.addEventListener('click',pickupNearestLoot);
-  UI.pickupMobileBtn?.addEventListener('pointerdown',e=>{e.preventDefault();pickupNearestLoot();});
+  const handlePickupInput=e=>{
+    e?.preventDefault?.();
+    e?.stopPropagation?.();
+    pickupNearestLoot();
+  };
+  UI.pickupBtn?.addEventListener('pointerdown',handlePickupInput);
+  UI.pickupBtn?.addEventListener('click',handlePickupInput);
+  UI.pickupMobileBtn?.addEventListener('pointerdown',handlePickupInput);
+  UI.pickupMobileBtn?.addEventListener('click',handlePickupInput);
   UI.bandageBtn?.addEventListener('pointerdown',e=>{e.preventDefault();useBandage();});
   UI.weaponSlot1?.addEventListener('click',()=>setActiveWeaponSlot(0));
   UI.weaponSlot2?.addEventListener('click',()=>setActiveWeaponSlot(1));
