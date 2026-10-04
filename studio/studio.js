@@ -33,7 +33,8 @@ const FILES={
   'dev-tools.js':'../dev-tools.js',
   'style.css':'../style.css',
   'profile.js':'../profile.js',
-  'index.html':'../index.html'
+  'index.html':'../index.html',
+  'STUDIO_GUIDE.md':'../STUDIO_GUIDE.md'
 };
 
 const VERSION_KEY='mini3d-studio-history-v1';
