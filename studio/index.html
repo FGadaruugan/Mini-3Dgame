@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
+  <meta name="theme-color" content="#0b1017" />
+  <title>Mini 3D Studio</title>
+  <link rel="stylesheet" href="./studio.css?v=20261004-1" />
+</head>
+<body>
+  <section id="gate" class="gate">
+    <div class="gate-card">
+      <div class="studio-mark">M3D</div>
+      <h1>MINI 3D STUDIO</h1>
+      <p id="gateStatus">Checking developer access…</p>
+      <button id="studioSignIn" class="primary hidden">SIGN IN WITH GOOGLE</button>
+      <a class="ghost-link" href="../">← Back to game</a>
+    </div>
+  </section>
+
+  <main id="studioShell" class="studio-shell hidden">
+    <header class="topbar">
+      <div class="brand">
+        <span class="studio-mark small">M3D</span>
+        <div><strong>MINI 3D STUDIO</strong><small id="studioIdentity">PRIVATE WORKSPACE</small></div>
+      </div>
+      <div class="toolbar">
+        <button id="playTestBtn">▶ PLAY TEST</button>
+        <button id="saveDraftBtn">SAVE DRAFT</button>
+        <button id="discardDraftBtn">RELOAD FILE</button>
+        <button class="disabled" disabled>PUBLISH · NEXT</button>
+      </div>
+      <div class="role-chip" id="roleChip">ROLE</div>
+    </header>
+
+    <div class="workspace">
+      <aside class="explorer panel">
+        <div class="panel-title"><span>EXPLORER</span><b id="fileState">LIVE</b></div>
+        <div class="tree-title">GAME FILES</div>
+        <button class="file-item active" data-file="game.js">JS <span>game.js</span></button>
+        <button class="file-item" data-file="style.css">CSS <span>style.css</span></button>
+        <button class="file-item" data-file="profile.js">JS <span>profile.js</span></button>
+        <button class="file-item" data-file="index.html">HTML <span>index.html</span></button>
+
+        <div class="tree-title space">WORLD SYSTEMS</div>
+        <div class="system-row"><span>◉</span><b>Map</b><small>480 × 480</small></div>
+        <div class="system-row"><span>◆</span><b>Bots</b><small>29</small></div>
+        <div class="system-row"><span>▣</span><b>Cars</b><small>6</small></div>
+        <div class="system-row"><span>✦</span><b>Loot</b><small>S1</small></div>
+      </aside>
+
+      <section class="editor panel">
+        <div class="editor-tabs">
+          <button class="editor-tab active">CODE</button>
+          <button class="editor-tab disabled" disabled>SCENE · NEXT</button>
+          <span id="activeFileLabel">game.js</span>
+        </div>
+        <textarea id="codeEditor" spellcheck="false" aria-label="Code editor"></textarea>
+        <div class="statusbar">
+          <span id="cursorInfo">READY</span>
+          <span id="codeStats">0 lines · 0 chars</span>
+        </div>
+      </section>
+
+      <aside class="inspector panel">
+        <div class="panel-title"><span>QUICK TOOLS</span><b>S1</b></div>
+        <p class="inspector-note">These tools edit the current <code>game.js</code> draft. Save Draft keeps it on this device.</p>
+
+        <label>Bot count
+          <input id="toolBotCount" type="number" min="1" max="99" value="29" />
+        </label>
+        <label>Map half-size
+          <input id="toolMapHalf" type="number" min="60" max="1000" value="240" />
+        </label>
+        <label>Player speed
+          <input id="toolPlayerSpeed" type="number" min="1" max="60" step="1" value="14" />
+        </label>
+        <label>Zone seconds
+          <input id="toolZoneSeconds" type="number" min="30" max="1800" step="10" value="300" />
+        </label>
+        <button id="applyQuickTools" class="primary full">APPLY TO CODE</button>
+
+        <div id="ownerPanel" class="owner-panel hidden">
+          <div class="tree-title">DEVELOPER ACCESS</div>
+          <input id="memberPlayerId" inputmode="numeric" maxlength="8" placeholder="8-digit Player ID" />
+          <select id="memberRole">
+            <option value="developer">Developer</option>
+            <option value="builder">Builder</option>
+            <option value="tester">Tester</option>
+            <option value="player">Remove access</option>
+          </select>
+          <button id="memberApply" class="primary full">UPDATE ACCESS</button>
+          <div id="memberList" class="member-list"></div>
+        </div>
+      </aside>
+    </div>
+
+    <section class="console panel">
+      <div class="panel-title"><span>CONSOLE</span><button id="clearConsole">CLEAR</button></div>
+      <div id="consoleOutput"></div>
+    </section>
+  </main>
+
+  <script type="module" src="./studio.js?v=20261004-1"></script>
+</body>
+</html>
