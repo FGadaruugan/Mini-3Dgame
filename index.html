@@ -46,6 +46,13 @@
         <button id="pickupBtn">PICK</button>
       </div>
 
+      <div id="vehicleHud" class="vehicle-hud hidden">
+        <span>CAR</span>
+        <strong id="vehicleSpeed">0</strong>
+        <small>km/h</small>
+      </div>
+      <button id="driveBtn" class="drive-btn hidden">DRIVE</button>
+
       <div id="crosshair" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
       <div id="hitmarker" aria-hidden="true">×</div>
 
@@ -61,6 +68,7 @@
       <button id="reloadBtn" class="round reload">RLD</button>
       <button id="pickupMobileBtn" class="round pickup hidden">PICK</button>
       <button id="bandageBtn" class="round heal">+HP</button>
+      <button id="driveMobileBtn" class="round drive-mobile hidden">DRIVE</button>
       <button id="jumpBtn" class="round jump hidden">JUMP</button>
     </div>
 
@@ -483,7 +491,7 @@
     </div>
   </div>
 
-  <script type="module" src="./game.js?v=20261004-autopick1"></script>
+  <script type="module" src="./game.js?v=20261004-car1"></script>
   <script type="module" src="./profile.js?v=20261004-mp1"></script>
 </body>
 </html>
