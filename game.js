@@ -153,17 +153,72 @@ function addTree(x,z) {
 
 function createPlayer() {
   player = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.8,1.8,4,8), new THREE.MeshStandardMaterial({ color:0x2c333c }));
-  body.position.y = 1.7;
-  body.castShadow = true;
-  player.add(body);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(.48,14,10), new THREE.MeshStandardMaterial({ color:0xc99672 }));
-  head.position.y = 3.25;
-  head.castShadow = true;
-  player.add(head);
-  const gun = new THREE.Mesh(new THREE.BoxGeometry(.18,.18,1.5), new THREE.MeshStandardMaterial({ color:0x20242a }));
-  gun.position.set(.55,2.25,-.55);
-  player.add(gun);
+
+  const skinMat = new THREE.MeshStandardMaterial({ color:0xc99372, roughness:.72 });
+  const suitMat = new THREE.MeshStandardMaterial({ color:0x1e2935, roughness:.58, metalness:.08 });
+  const vestMat = new THREE.MeshStandardMaterial({ color:0x35485a, roughness:.5, metalness:.12 });
+  const clothMat = new THREE.MeshStandardMaterial({ color:0x304f73, roughness:.72 });
+  const darkMat = new THREE.MeshStandardMaterial({ color:0x111820, roughness:.52, metalness:.18 });
+  const accentMat = new THREE.MeshStandardMaterial({
+    color:0xd5ad35,
+    roughness:.34,
+    metalness:.58,
+    emissive:0x2c2104,
+    emissiveIntensity:.16
+  });
+
+  const addPart = (geometry, material, x, y, z, rx=0, ry=0, rz=0) => {
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.set(x,y,z);
+    mesh.rotation.set(rx,ry,rz);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    player.add(mesh);
+    return mesh;
+  };
+
+  // Boots + legs
+  addPart(new THREE.BoxGeometry(.34,.24,.55), darkMat, -.28,.14,-.08);
+  addPart(new THREE.BoxGeometry(.34,.24,.55), darkMat,  .28,.14,-.08);
+  addPart(new THREE.CylinderGeometry(.17,.20,1.10,10), suitMat, -.28,.78,0);
+  addPart(new THREE.CylinderGeometry(.17,.20,1.10,10), suitMat,  .28,.78,0);
+  addPart(new THREE.CylinderGeometry(.205,.18,.16,10), accentMat, -.28,.38,0);
+  addPart(new THREE.CylinderGeometry(.205,.18,.16,10), accentMat,  .28,.38,0);
+
+  // Hips, torso, armor
+  addPart(new THREE.BoxGeometry(.84,.38,.48), suitMat, 0,1.42,0);
+  addPart(new THREE.BoxGeometry(.94,1.12,.52), clothMat, 0,2.12,0);
+  addPart(new THREE.BoxGeometry(1.04,.72,.60), vestMat, 0,2.30,-.03);
+  addPart(new THREE.BoxGeometry(.72,.13,.64), accentMat, 0,1.68,-.02);
+  addPart(new THREE.BoxGeometry(.10,.62,.66), accentMat, -.39,2.30,-.01);
+  addPart(new THREE.BoxGeometry(.10,.62,.66), accentMat,  .39,2.30,-.01);
+
+  // Shoulders + arms
+  addPart(new THREE.SphereGeometry(.23,10,8), vestMat, -.61,2.54,0);
+  addPart(new THREE.SphereGeometry(.23,10,8), vestMat,  .61,2.54,0);
+  addPart(new THREE.CylinderGeometry(.13,.15,.82,10), suitMat, -.70,2.12,0,0,0,-.16);
+  addPart(new THREE.CylinderGeometry(.13,.15,.82,10), suitMat,  .70,2.12,0,0,0, .16);
+  addPart(new THREE.SphereGeometry(.15,10,8), skinMat, -.76,1.68,0);
+  addPart(new THREE.SphereGeometry(.15,10,8), skinMat,  .76,1.68,0);
+
+  // Neck + head + hair/helmet shell
+  addPart(new THREE.CylinderGeometry(.13,.15,.20,10), skinMat, 0,2.85,0);
+  addPart(new THREE.SphereGeometry(.40,16,12), skinMat, 0,3.27,0);
+  const hair = addPart(new THREE.SphereGeometry(.425,16,12), darkMat, 0,3.38,.03);
+  hair.scale.set(1.03,.62,1.04);
+  addPart(new THREE.BoxGeometry(.52,.09,.10), darkMat, 0,3.27,-.39);
+
+  // Backpack and shoulder weapon.
+  addPart(new THREE.BoxGeometry(.64,.82,.30), darkMat, 0,2.22,.42);
+  const gun = addPart(new THREE.BoxGeometry(.17,.18,1.55), darkMat, .55,2.72,-.20,0,-.18,-.62);
+  const barrel = addPart(new THREE.BoxGeometry(.10,.10,.72), accentMat, .88,2.95,-.50,0,-.18,-.62);
+  gun.add(barrel);
+  addPart(new THREE.BoxGeometry(.22,.35,.17), darkMat, .43,2.53,-.20,0,-.18,-.62);
+
+  // Small chest emblem for a stronger lobby silhouette.
+  const emblem = addPart(new THREE.OctahedronGeometry(.13), accentMat, 0,2.42,-.34);
+  emblem.rotation.z=Math.PI/4;
+
   player.userData.gun = gun;
   scene.add(player);
 }
@@ -208,9 +263,30 @@ function createLobbyStage() {
   innerRing.position.y=.295;
   lobbyStage.add(innerRing);
 
-  lobbySpot = new THREE.PointLight(0xf3cf65,18,16,2);
-  lobbySpot.position.set(-1.8,5.5,2.4);
+  lobbySpot = new THREE.PointLight(0xf3cf65,20,18,2);
+  lobbySpot.position.set(-2.2,5.8,2.6);
   lobbyStage.add(lobbySpot);
+
+  const coolRim = new THREE.PointLight(0x7fc8ff,11,17,2);
+  coolRim.position.set(3.4,4.2,-2.7);
+  lobbyStage.add(coolRim);
+
+  const warmFill = new THREE.PointLight(0xffa63b,6,12,2);
+  warmFill.position.set(-3.4,2.4,-1.5);
+  lobbyStage.add(warmFill);
+
+  const backPlate = new THREE.Mesh(
+    new THREE.CylinderGeometry(3.15,3.15,.05,48),
+    new THREE.MeshStandardMaterial({
+      color:0x0f151b,
+      roughness:.42,
+      metalness:.24,
+      transparent:true,
+      opacity:.92
+    })
+  );
+  backPlate.position.y=.32;
+  lobbyStage.add(backPlate);
 
   lobbyStage.visible=false;
   scene.add(lobbyStage);
@@ -828,23 +904,22 @@ function updateLobby(dt) {
     lobbySpot.intensity=17+Math.sin(lobbyTime*1.4)*1.5;
   }
 
-  const target=player.position.clone().add(new THREE.Vector3(0,2.15,0));
-  const orbit=.56+Math.sin(lobbyTime*.22)*.055;
-  const distance=8.7;
+  const target=player.position.clone().add(new THREE.Vector3(0,2.05,0));
+  const orbit=.54+Math.sin(lobbyTime*.18)*.035;
+  const distance=7.15;
 
   const desired=new THREE.Vector3(
     Math.sin(orbit)*distance,
-    3.75+Math.sin(lobbyTime*.34)*.08,
+    3.42+Math.sin(lobbyTime*.30)*.055,
     Math.cos(orbit)*distance
   );
 
-  const blend=1-Math.exp(-3.4*dt);
+  const blend=1-Math.exp(-3.8*dt);
   camera.position.lerp(desired,blend);
 
-  // Look slightly to the character's right so the model sits left-of-centre,
-  // leaving space for the mode panel on mobile landscape.
-  camera.lookAt(target.clone().add(new THREE.Vector3(1.75,.08,0)));
-  camera.fov=THREE.MathUtils.lerp(camera.fov,48,blend);
+  // Keep the character large and slightly left of center for lobby controls.
+  camera.lookAt(target.clone().add(new THREE.Vector3(.78,.05,0)));
+  camera.fov=THREE.MathUtils.lerp(camera.fov,44,blend);
   camera.updateProjectionMatrix();
 }
 
