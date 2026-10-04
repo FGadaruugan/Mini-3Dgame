@@ -310,3 +310,46 @@ begin
     alter publication supabase_realtime add table public.match_invites;
   end if;
 end $$;
+
+
+-- Security + performance hardening
+alter function public.keep_player_id_immutable() set search_path = public;
+
+revoke execute on function public.generate_player_id() from public, anon, authenticated;
+revoke execute on function public.handle_new_user() from public, anon, authenticated;
+
+revoke execute on function public.send_friend_request(text) from anon;
+revoke execute on function public.respond_friend_request(uuid,boolean) from anon;
+revoke execute on function public.send_match_invite(uuid) from anon;
+revoke execute on function public.respond_match_invite(uuid,boolean) from anon;
+
+create index if not exists friend_requests_sender_idx on public.friend_requests(sender_id);
+create index if not exists friend_requests_receiver_idx on public.friend_requests(receiver_id);
+create index if not exists friendships_friend_idx on public.friendships(friend_id);
+create index if not exists match_invites_sender_idx on public.match_invites(sender_id);
+create index if not exists match_invites_receiver_idx on public.match_invites(receiver_id);
+
+drop policy if exists "profile owner can update profile" on public.profiles;
+create policy "profile owner can update profile"
+on public.profiles for update
+to authenticated
+using (id = (select auth.uid()))
+with check (id = (select auth.uid()));
+
+drop policy if exists "friend requests visible to participants" on public.friend_requests;
+create policy "friend requests visible to participants"
+on public.friend_requests for select
+to authenticated
+using ((select auth.uid()) in (sender_id,receiver_id));
+
+drop policy if exists "friendships visible to owner" on public.friendships;
+create policy "friendships visible to owner"
+on public.friendships for select
+to authenticated
+using (user_id = (select auth.uid()));
+
+drop policy if exists "match invites visible to participants" on public.match_invites;
+create policy "match invites visible to participants"
+on public.match_invites for select
+to authenticated
+using ((select auth.uid()) in (sender_id,receiver_id));
