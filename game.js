@@ -1100,6 +1100,123 @@ document.addEventListener('mini3d:net-shot',event=>{
   spawnTracer(a,b,0xff775c);
 });
 
+const STUDIO_SCENE_DRAFT_KEY='mini3d-studio-scene-v1';
+
+function loadStudioTestScene() {
+  const params=new URLSearchParams(window.location.search);
+  if(params.get('studioTest')!=='1') return null;
+
+  try {
+    const raw=JSON.parse(localStorage.getItem(STUDIO_SCENE_DRAFT_KEY)||'null');
+    if(raw?.version!==1 || !Array.isArray(raw.objects)) return null;
+
+    const objects=[];
+    for(const item of raw.objects.slice(0,300)){
+      if(!item || !['box','tree'].includes(item.type)) continue;
+
+      const position=Array.isArray(item.position)?item.position:[0,0,0];
+      const rotation=Array.isArray(item.rotation)?item.rotation:[0,0,0];
+      const scale=Array.isArray(item.scale)?item.scale:[1,1,1];
+      const size=Array.isArray(item.size)?item.size:[6,4,6];
+      const color=/^#[0-9a-f]{6}$/i.test(item.color||'')?item.color:(item.type==='tree'?'#2f633a':'#8390a0');
+
+      const number=(value,fallback=0)=>Number.isFinite(Number(value))?Number(value):fallback;
+      const clamp=(value,min,max)=>THREE.MathUtils.clamp(number(value),min,max);
+
+      objects.push({
+        type:item.type,
+        position:[
+          clamp(position[0],-GAME.mapHalf+2,GAME.mapHalf-2),
+          clamp(position[1],-20,100),
+          clamp(position[2],-GAME.mapHalf+2,GAME.mapHalf-2)
+        ],
+        rotation:[
+          clamp(rotation[0],-Math.PI*4,Math.PI*4),
+          clamp(rotation[1],-Math.PI*4,Math.PI*4),
+          clamp(rotation[2],-Math.PI*4,Math.PI*4)
+        ],
+        scale:[
+          clamp(scale[0]||1,.1,20),
+          clamp(scale[1]||1,.1,20),
+          clamp(scale[2]||1,.1,20)
+        ],
+        size:[
+          clamp(size[0]||6,.5,100),
+          clamp(size[1]||4,.5,100),
+          clamp(size[2]||6,.5,100)
+        ],
+        color
+      });
+    }
+
+    return {objects};
+  } catch {
+    return null;
+  }
+}
+
+function addStudioSceneObject(data) {
+  if(data.type==='tree'){
+    const root=new THREE.Group();
+
+    const trunk=new THREE.Mesh(
+      new THREE.CylinderGeometry(.65,.85,5,8),
+      new THREE.MeshStandardMaterial({color:0x6e4d2f,roughness:.9})
+    );
+    trunk.position.y=2.5;
+    trunk.castShadow=true;
+    root.add(trunk);
+
+    const crown=new THREE.Mesh(
+      new THREE.ConeGeometry(3.6,8,9),
+      new THREE.MeshStandardMaterial({color:data.color,roughness:.88})
+    );
+    crown.position.y=8;
+    crown.castShadow=true;
+    root.add(crown);
+
+    root.position.set(...data.position);
+    root.rotation.set(...data.rotation);
+    root.scale.set(...data.scale);
+    scene.add(root);
+
+    const radius=1.1*Math.max(Math.abs(data.scale[0]),Math.abs(data.scale[2]));
+    colliders.push({
+      minX:root.position.x-radius,
+      maxX:root.position.x+radius,
+      minZ:root.position.z-radius,
+      maxZ:root.position.z+radius
+    });
+    return;
+  }
+
+  const [baseW,baseH,baseD]=data.size;
+  const mesh=new THREE.Mesh(
+    new THREE.BoxGeometry(baseW,baseH,baseD),
+    new THREE.MeshStandardMaterial({color:data.color,roughness:.8})
+  );
+  mesh.position.set(...data.position);
+  mesh.rotation.set(...data.rotation);
+  mesh.scale.set(...data.scale);
+  mesh.castShadow=true;
+  mesh.receiveShadow=true;
+  scene.add(mesh);
+
+  const w=baseW*Math.abs(data.scale[0]);
+  const d=baseD*Math.abs(data.scale[2]);
+  const c=Math.abs(Math.cos(data.rotation[1]));
+  const sn=Math.abs(Math.sin(data.rotation[1]));
+  const halfX=(c*w+sn*d)/2+.55;
+  const halfZ=(sn*w+c*d)/2+.55;
+
+  colliders.push({
+    minX:mesh.position.x-halfX,
+    maxX:mesh.position.x+halfX,
+    minZ:mesh.position.z-halfZ,
+    maxZ:mesh.position.z+halfZ
+  });
+}
+
 function buildWorld() {
   const hemi = new THREE.HemisphereLight(0xdcecff, 0x40552d, 2.2);
   scene.add(hemi);
@@ -1129,32 +1246,38 @@ function buildWorld() {
     scene.add(road);
   }
 
-  addBox(-35, 0, -28, 18, 10, 22, 0xa76d42);
-  addBox(34, 0, -34, 24, 8, 18, 0x8390a0);
-  addBox(-42, 0, 32, 22, 12, 20, 0xb48a62);
-  addBox(37, 0, 33, 16, 9, 26, 0x787f8e);
-  addBox(5, 0, 47, 18, 7, 12, 0x8a755c);
-  addBox(-6, 0, -54, 20, 9, 14, 0x6f7f91);
+  const studioTestScene=loadStudioTestScene();
 
-  // S1 outer settlements: spreads combat across the larger island.
-  addBox(-155,0,-132,28,10,34,0x8f6747);
-  addBox(-118,0,-158,22,8,24,0x75879a);
-  addBox(150,0,130,34,12,28,0x8d7a65);
-  addBox(120,0,160,20,9,32,0x6f8092);
-  addBox(-158,0,122,30,11,22,0xa17a55);
-  addBox(158,0,-138,24,9,30,0x7a8490);
-  addBox(-88,0,145,18,8,20,0x8d7359);
-  addBox(92,0,-150,20,8,18,0x72879a);
+  if(studioTestScene){
+    studioTestScene.objects.forEach(addStudioSceneObject);
+  } else {
+    addBox(-35, 0, -28, 18, 10, 22, 0xa76d42);
+    addBox(34, 0, -34, 24, 8, 18, 0x8390a0);
+    addBox(-42, 0, 32, 22, 12, 20, 0xb48a62);
+    addBox(37, 0, 33, 16, 9, 26, 0x787f8e);
+    addBox(5, 0, 47, 18, 7, 12, 0x8a755c);
+    addBox(-6, 0, -54, 20, 9, 14, 0x6f7f91);
 
-  const wallColor = 0x8c8b86;
-  addBox(-18,0,-8,18,3,2,wallColor);
-  addBox(21,0,13,20,3,2,wallColor);
-  addBox(-7,0,23,2,3,18,wallColor);
-  addBox(53,0,-2,2,3,22,wallColor);
-  addBox(-56,0,-1,2,3,22,wallColor);
+    // S1 outer settlements: spreads combat across the larger island.
+    addBox(-155,0,-132,28,10,34,0x8f6747);
+    addBox(-118,0,-158,22,8,24,0x75879a);
+    addBox(150,0,130,34,12,28,0x8d7a65);
+    addBox(120,0,160,20,9,32,0x6f8092);
+    addBox(-158,0,122,30,11,22,0xa17a55);
+    addBox(158,0,-138,24,9,30,0x7a8490);
+    addBox(-88,0,145,18,8,20,0x8d7359);
+    addBox(92,0,-150,20,8,18,0x72879a);
 
-  const treePositions = [[-70,-63],[-64,55],[-52,63],[-28,61],[-18,-69],[15,-67],[31,63],[59,57],[68,20],[65,-54],[49,-66],[-69,18],[-25,12],[25,-13],[51,14],[-48,-12]];
-  treePositions.forEach(([x,z]) => addTree(x,z));
+    const wallColor = 0x8c8b86;
+    addBox(-18,0,-8,18,3,2,wallColor);
+    addBox(21,0,13,20,3,2,wallColor);
+    addBox(-7,0,23,2,3,18,wallColor);
+    addBox(53,0,-2,2,3,22,wallColor);
+    addBox(-56,0,-1,2,3,22,wallColor);
+
+    const treePositions = [[-70,-63],[-64,55],[-52,63],[-28,61],[-18,-69],[15,-67],[31,63],[59,57],[68,20],[65,-54],[49,-66],[-69,18],[-25,12],[25,-13],[51,14],[-48,-12]];
+    treePositions.forEach(([x,z]) => addTree(x,z));
+  }
 
   const zonePts = [];
   for (let i=0;i<=128;i++) {
