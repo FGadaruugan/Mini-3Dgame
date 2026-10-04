@@ -33,12 +33,12 @@ const GAME = {
   spawnProtectionSeconds: 4
 };
 
-let scene, camera, renderer, clock, player, ground, zoneRing;
+let scene, camera, renderer, clock, player, ground, zoneRing, lobbyStage, lobbySpot;
 let started = false, paused = false, ended = false;
 let selectedMode = 'solo';
 let yaw = Math.PI, pitch = -0.18, bodyYaw = 0, aiming = false;
 let hp = GAME.maxHp, ammo = GAME.magSize, reserve = 120, kills = 0, reloading = false;
-let lastShot = 0, elapsed = 0, spawnProtection = 0;
+let lastShot = 0, elapsed = 0, spawnProtection = 0, lobbyTime = 0;
 let bots = [], colliders = [], tracers = [];
 const keys = new Set();
 const raycaster = new THREE.Raycaster();
@@ -67,6 +67,7 @@ function init() {
   clock = new THREE.Clock();
   buildWorld();
   createPlayer();
+  createLobbyStage();
   bindInputs();
   resetMatch();
   showLobby();
@@ -167,6 +168,54 @@ function createPlayer() {
   scene.add(player);
 }
 
+function createLobbyStage() {
+  lobbyStage = new THREE.Group();
+
+  const base = new THREE.Mesh(
+    new THREE.CylinderGeometry(3.3,3.5,.28,48),
+    new THREE.MeshStandardMaterial({
+      color:0x171d24,
+      roughness:.42,
+      metalness:.35
+    })
+  );
+  base.position.y=.14;
+  base.receiveShadow=true;
+  lobbyStage.add(base);
+
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(2.9,.045,10,72),
+    new THREE.MeshBasicMaterial({
+      color:0xf1c84b,
+      transparent:true,
+      opacity:.78
+    })
+  );
+  ring.rotation.x=Math.PI/2;
+  ring.position.y=.31;
+  lobbyStage.add(ring);
+
+  const innerRing = new THREE.Mesh(
+    new THREE.RingGeometry(1.8,2.7,64),
+    new THREE.MeshBasicMaterial({
+      color:0x4f7898,
+      transparent:true,
+      opacity:.07,
+      side:THREE.DoubleSide
+    })
+  );
+  innerRing.rotation.x=-Math.PI/2;
+  innerRing.position.y=.295;
+  lobbyStage.add(innerRing);
+
+  lobbySpot = new THREE.PointLight(0xf3cf65,18,16,2);
+  lobbySpot.position.set(-1.8,5.5,2.4);
+  lobbyStage.add(lobbySpot);
+
+  lobbyStage.visible=false;
+  scene.add(lobbyStage);
+}
+
 function makeBot(index) {
   const root = new THREE.Group();
   const colors = [0x8b3944,0x355b8f,0x7d6b2f,0x5d3f7c,0x2f6f68];
@@ -211,9 +260,12 @@ function resetMatch() {
   mobile.moveX = mobile.moveY = 0;
   mobile.firing = false;
   centerStick();
+  player.visible=true;
   player.position.set(0,0,67);
   bodyYaw = wrapAngle(yaw + Math.PI);
   player.rotation.y = bodyYaw;
+  if (lobbyStage) lobbyStage.visible=false;
+  if (zoneRing) zoneRing.visible=true;
   const spawns = [[-66,-58],[65,-60],[-63,60],[62,57],[0,-68]];
   for (let i=0;i<GAME.botCount;i++) {
     const bot = makeBot(i);
@@ -238,6 +290,21 @@ function showLobby() {
   reloading=false;
   mobile.firing=false;
   keys.clear();
+
+  // Dedicated lobby presentation state.
+  bots.forEach(bot=>bot.visible=false);
+  player.visible=true;
+  player.position.set(0,.28,0);
+  bodyYaw=-.28;
+  player.rotation.y=bodyYaw;
+  lobbyTime=0;
+
+  if (lobbyStage) {
+    lobbyStage.position.set(0,0,0);
+    lobbyStage.visible=true;
+  }
+  if (zoneRing) zoneRing.visible=false;
+
   setGameUiVisible(false);
   UI.endOverlay.classList.add('hidden');
   UI.startOverlay.classList.remove('hidden');
@@ -658,6 +725,44 @@ function updateCamera() {
   camera.updateProjectionMatrix();
 }
 
+function updateLobby(dt) {
+  lobbyTime+=dt;
+
+  // Subtle idle motion instead of a static model.
+  player.position.y=.28+Math.sin(lobbyTime*1.7)*.025;
+  player.rotation.y=-.28+Math.sin(lobbyTime*.55)*.055;
+
+  if (lobbyStage) {
+    const ring=lobbyStage.children[1];
+    const innerRing=lobbyStage.children[2];
+    if (ring) ring.rotation.z=lobbyTime*.13;
+    if (innerRing) innerRing.rotation.z=-lobbyTime*.055;
+  }
+
+  if (lobbySpot) {
+    lobbySpot.intensity=17+Math.sin(lobbyTime*1.4)*1.5;
+  }
+
+  const target=player.position.clone().add(new THREE.Vector3(0,2.15,0));
+  const orbit=.56+Math.sin(lobbyTime*.22)*.055;
+  const distance=8.7;
+
+  const desired=new THREE.Vector3(
+    Math.sin(orbit)*distance,
+    3.75+Math.sin(lobbyTime*.34)*.08,
+    Math.cos(orbit)*distance
+  );
+
+  const blend=1-Math.exp(-3.4*dt);
+  camera.position.lerp(desired,blend);
+
+  // Look slightly to the character's right so the model sits left-of-centre,
+  // leaving space for the mode panel on mobile landscape.
+  camera.lookAt(target.clone().add(new THREE.Vector3(1.75,.08,0)));
+  camera.fov=THREE.MathUtils.lerp(camera.fov,48,blend);
+  camera.updateProjectionMatrix();
+}
+
 function updateBots(dt) {
   for(const bot of bots){
     if(!bot.userData.alive) continue;
@@ -833,6 +938,8 @@ function animate() {
     updateCamera();
     updateHud();
     drawMinimap();
+  } else if(!started) {
+    updateLobby(dt);
   } else {
     updateCamera();
     drawMinimap();
