@@ -34,4 +34,27 @@ export const BASE_SCENE_OBJECTS = [
   {id:'tree-14',type:'tree',name:'Tree 14',position:[25,0,-13],rotation:[0,0,0],scale:[1,1,1],color:'#2f633a'},
   {id:'tree-15',type:'tree',name:'Tree 15',position:[51,0,14],rotation:[0,0,0],scale:[1,1,1],color:'#2f633a'},
   {id:'tree-16',type:'tree',name:'Tree 16',position:[-48,0,-12],rotation:[0,0,0],scale:[1,1,1],color:'#2f633a'}
+  ,
+  {id:'car-spawn-01',type:'carSpawn',name:'Car Spawn 01',position:[0,0,100],rotation:[0,0,0],scale:[1,1,1],color:'#68c7ff'},
+  {id:'car-spawn-02',type:'carSpawn',name:'Car Spawn 02',position:[0,0,-115],rotation:[0,3.141592653589793,0],scale:[1,1,1],color:'#68c7ff'},
+  {id:'car-spawn-03',type:'carSpawn',name:'Car Spawn 03',position:[100,0,0],rotation:[0,1.5707963267948966,0],scale:[1,1,1],color:'#68c7ff'},
+  {id:'car-spawn-04',type:'carSpawn',name:'Car Spawn 04',position:[-108,0,0],rotation:[0,-1.5707963267948966,0],scale:[1,1,1],color:'#68c7ff'},
+  {id:'car-spawn-05',type:'carSpawn',name:'Car Spawn 05',position:[125,0,-105],rotation:[0,0,0],scale:[1,1,1],color:'#68c7ff'},
+  {id:'car-spawn-06',type:'carSpawn',name:'Car Spawn 06',position:[-125,0,100],rotation:[0,3.141592653589793,0],scale:[1,1,1],color:'#68c7ff'},
+
+  {id:'loot-spawn-01',type:'lootSpawn',name:'Loot Area 01',position:[0,0,0],rotation:[0,0,0],scale:[1,1,1],color:'#f0c64b'},
+  {id:'loot-spawn-02',type:'lootSpawn',name:'Loot Area 02',position:[-35,0,-28],rotation:[0,0,0],scale:[1,1,1],color:'#f0c64b'},
+  {id:'loot-spawn-03',type:'lootSpawn',name:'Loot Area 03',position:[34,0,-34],rotation:[0,0,0],scale:[1,1,1],color:'#f0c64b'},
+  {id:'loot-spawn-04',type:'lootSpawn',name:'Loot Area 04',position:[-42,0,32],rotation:[0,0,0],scale:[1,1,1],color:'#f0c64b'},
+  {id:'loot-spawn-05',type:'lootSpawn',name:'Loot Area 05',position:[37,0,33],rotation:[0,0,0],scale:[1,1,1],color:'#f0c64b'},
+  {id:'loot-spawn-06',type:'lootSpawn',name:'Loot Area 06',position:[5,0,47],rotation:[0,0,0],scale:[1,1,1],color:'#f0c64b'},
+  {id:'loot-spawn-07',type:'lootSpawn',name:'Loot Area 07',position:[-6,0,-54],rotation:[0,0,0],scale:[1,1,1],color:'#f0c64b'},
+  {id:'loot-spawn-08',type:'lootSpawn',name:'Loot Area 08',position:[-150,0,-125],rotation:[0,0,0],scale:[1,1,1],color:'#f0c64b'},
+  {id:'loot-spawn-09',type:'lootSpawn',name:'Loot Area 09',position:[-118,0,-150],rotation:[0,0,0],scale:[1,1,1],color:'#f0c64b'},
+  {id:'loot-spawn-10',type:'lootSpawn',name:'Loot Area 10',position:[148,0,122],rotation:[0,0,0],scale:[1,1,1],color:'#f0c64b'},
+  {id:'loot-spawn-11',type:'lootSpawn',name:'Loot Area 11',position:[118,0,150],rotation:[0,0,0],scale:[1,1,1],color:'#f0c64b'},
+  {id:'loot-spawn-12',type:'lootSpawn',name:'Loot Area 12',position:[-150,0,115],rotation:[0,0,0],scale:[1,1,1],color:'#f0c64b'},
+  {id:'loot-spawn-13',type:'lootSpawn',name:'Loot Area 13',position:[150,0,-130],rotation:[0,0,0],scale:[1,1,1],color:'#f0c64b'},
+  {id:'loot-spawn-14',type:'lootSpawn',name:'Loot Area 14',position:[-85,0,138],rotation:[0,0,0],scale:[1,1,1],color:'#f0c64b'},
+  {id:'loot-spawn-15',type:'lootSpawn',name:'Loot Area 15',position:[88,0,-142],rotation:[0,0,0],scale:[1,1,1],color:'#f0c64b'}
 ];
