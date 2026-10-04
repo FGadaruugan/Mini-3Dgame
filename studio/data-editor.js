@@ -46,6 +46,7 @@ let dirty=false;
 let logFn=()=>{};
 let stateFn=()=>{};
 let initialized=false;
+let autosaveTimer=0;
 
 function loadDraft(){
   try{
@@ -211,6 +212,15 @@ function bindInputs(){
         data.weapons[id][key]=value;
       }
       dirty=true;
+      clearTimeout(autosaveTimer);
+      autosaveTimer=setTimeout(()=>{
+        if(!canEdit) return;
+        const clean=sanitize(data);
+        localStorage.setItem(DATA_DRAFT_KEY,JSON.stringify({
+          ...clean,
+          updatedAt:new Date().toISOString()
+        }));
+      },700);
       stateFn?.(getDataStatus());
     });
   });
