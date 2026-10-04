@@ -44,14 +44,22 @@ function cloneDefaults(){
 }
 
 function normalizeObject(raw,index=0){
-  if(!raw || !['box','tree'].includes(raw.type)) return null;
+  if(!raw || !['box','tree','carSpawn','lootSpawn'].includes(raw.type)) return null;
 
   const type=raw.type;
   const position=Array.isArray(raw.position)?raw.position:[0,0,0];
   const rotation=Array.isArray(raw.rotation)?raw.rotation:[0,0,0];
   const scale=Array.isArray(raw.scale)?raw.scale:[1,1,1];
   const size=Array.isArray(raw.size)?raw.size:[6,4,6];
-  const color=/^#[0-9a-f]{6}$/i.test(raw.color||'')?raw.color:(type==='tree'?'#2f633a':'#8390a0');
+  const color=/^#[0-9a-f]{6}$/i.test(raw.color||'')
+    ? raw.color
+    : type==='tree'
+      ? '#2f633a'
+      : type==='carSpawn'
+        ? '#68c7ff'
+        : type==='lootSpawn'
+          ? '#f0c64b'
+          : '#8390a0';
 
   return {
     id:String(raw.id||('object-'+index)).slice(0,80),
@@ -145,6 +153,51 @@ function makeTree(data){
   return group;
 }
 
+function makeMarker(data){
+  const group=new THREE.Group();
+  const mat=new THREE.MeshBasicMaterial({
+    color:data.color,
+    transparent:true,
+    opacity:.9,
+    depthTest:false
+  });
+
+  if(data.type==='carSpawn'){
+    const base=new THREE.Mesh(new THREE.BoxGeometry(2.4,.65,4.2),mat);
+    base.position.y=.45;
+    base.userData.colorTarget=true;
+    group.add(base);
+
+    const arrow=new THREE.Mesh(
+      new THREE.ConeGeometry(.55,1.5,8),
+      new THREE.MeshBasicMaterial({color:data.color,depthTest:false})
+    );
+    arrow.rotation.x=Math.PI/2;
+    arrow.position.set(0,1.25,2.6);
+    arrow.userData.colorTarget=true;
+    group.add(arrow);
+  }else{
+    const ring=new THREE.Mesh(
+      new THREE.TorusGeometry(2.2,.16,8,28),
+      mat
+    );
+    ring.rotation.x=Math.PI/2;
+    ring.position.y=.18;
+    ring.userData.colorTarget=true;
+    group.add(ring);
+
+    const beacon=new THREE.Mesh(
+      new THREE.CylinderGeometry(.18,.18,3.4,8),
+      new THREE.MeshBasicMaterial({color:data.color,transparent:true,opacity:.75,depthTest:false})
+    );
+    beacon.position.y=1.7;
+    beacon.userData.colorTarget=true;
+    group.add(beacon);
+  }
+
+  return group;
+}
+
 function applyTransform(root,data){
   root.position.fromArray(data.position);
   root.rotation.set(...data.rotation);
@@ -154,7 +207,11 @@ function applyTransform(root,data){
 }
 
 function createRoot(data){
-  const root=data.type==='tree'?makeTree(data):makeBox(data);
+  const root=data.type==='tree'
+    ? makeTree(data)
+    : (data.type==='carSpawn' || data.type==='lootSpawn')
+      ? makeMarker(data)
+      : makeBox(data);
   root.userData.sceneId=data.id;
   root.userData.sceneType=data.type;
   root.name=data.name;
@@ -257,7 +314,7 @@ function renderObjectList(){
     const select=document.createElement('button');
     select.className='scene-object';
     select.innerHTML=
-      '<span>'+(obj.type==='tree'?'▲':'■')+'</span>'+
+      '<span>'+({tree:'▲',box:'■',carSpawn:'C',lootSpawn:'✦'}[obj.type]||'•')+'</span>'+
       '<strong>'+escapeHtml(obj.name)+'</strong>'+
       '<small>'+obj.type+'</small>';
     select.addEventListener('click',()=>selectObject(obj.id,true));
@@ -458,7 +515,7 @@ function updateEditAvailability(){
   const editable=canEdit && !data?.editorLocked;
 
   const ids=[
-    'addBoxBtn','addTreeBtn','sceneMoveMode','sceneRotateMode','sceneScaleMode',
+    'addBoxBtn','addTreeBtn','addCarSpawnBtn','addLootSpawnBtn','sceneMoveMode','sceneRotateMode','sceneScaleMode',
     'sceneDuplicateBtn','sceneDeleteBtn','propName',
     'propPosX','propPosY','propPosZ','propRotX','propRotY','propRotZ',
     'propScaleX','propScaleY','propScaleZ','propSizeX','propSizeY','propSizeZ',
@@ -468,7 +525,7 @@ function updateEditAvailability(){
   ids.forEach(id=>{
     const el=$(id);
     if(!el) return;
-    if(['addBoxBtn','addTreeBtn','resetSceneBtn'].includes(id)) el.disabled=!canEdit;
+    if(['addBoxBtn','addTreeBtn','addCarSpawnBtn','addLootSpawnBtn','resetSceneBtn'].includes(id)) el.disabled=!canEdit;
     else el.disabled=!editable;
   });
 
@@ -502,15 +559,34 @@ function addObject(type){
   const id=uniqueId(type);
   const target=orbit?.target||new THREE.Vector3();
 
-  const obj=normalizeObject(type==='tree'?{
-    id,type:'tree',name:'New Tree',
-    position:[round(target.x+4),0,round(target.z+4)],
-    rotation:[0,0,0],scale:[1,1,1],color:'#2f633a'
-  }:{
-    id,type:'box',name:'New Box',
-    position:[round(target.x+4),2.5,round(target.z+4)],
-    rotation:[0,0,0],scale:[1,1,1],size:[5,5,5],color:'#8390a0'
-  });
+  let template;
+  if(type==='tree'){
+    template={
+      id,type:'tree',name:'New Tree',
+      position:[round(target.x+4),0,round(target.z+4)],
+      rotation:[0,0,0],scale:[1,1,1],color:'#2f633a'
+    };
+  }else if(type==='carSpawn'){
+    template={
+      id,type:'carSpawn',name:'New Car Spawn',
+      position:[round(target.x+4),0,round(target.z+4)],
+      rotation:[0,0,0],scale:[1,1,1],color:'#68c7ff'
+    };
+  }else if(type==='lootSpawn'){
+    template={
+      id,type:'lootSpawn',name:'New Loot Area',
+      position:[round(target.x+4),0,round(target.z+4)],
+      rotation:[0,0,0],scale:[1,1,1],color:'#f0c64b'
+    };
+  }else{
+    template={
+      id,type:'box',name:'New Box',
+      position:[round(target.x+4),2.5,round(target.z+4)],
+      rotation:[0,0,0],scale:[1,1,1],size:[5,5,5],color:'#8390a0'
+    };
+  }
+
+  const obj=normalizeObject(template);
 
   sceneData.objects.push(obj);
   createRoot(obj);
@@ -790,6 +866,8 @@ function bindPropertyEvents(){
 
   $('addBoxBtn')?.addEventListener('click',()=>addObject('box'));
   $('addTreeBtn')?.addEventListener('click',()=>addObject('tree'));
+  $('addCarSpawnBtn')?.addEventListener('click',()=>addObject('carSpawn'));
+  $('addLootSpawnBtn')?.addEventListener('click',()=>addObject('lootSpawn'));
   $('sceneMoveMode')?.addEventListener('click',()=>setTransformMode('translate'));
   $('sceneRotateMode')?.addEventListener('click',()=>setTransformMode('rotate'));
   $('sceneScaleMode')?.addEventListener('click',()=>setTransformMode('scale'));
