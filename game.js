@@ -1,27 +1,4 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js';
-import { GAME, WEAPONS, CAR_CONFIG, LOOT_CONFIG } from './game-config.js';
-import { BASE_SCENE_OBJECTS } from './scene-data.js';
-import { initDevTools, updateDevTools } from './dev-tools.js';
-
-const STUDIO_TEST_MODE=new URLSearchParams(location.search).get('studioTest')==='1';
-
-if(STUDIO_TEST_MODE){
-  try{
-    const draft=JSON.parse(localStorage.getItem('mini3d-studio-data-v1')||'null');
-    if(draft?.version===1){
-      if(draft.game && typeof draft.game==='object') Object.assign(GAME,draft.game);
-      if(draft.car && typeof draft.car==='object') Object.assign(CAR_CONFIG,draft.car);
-      if(draft.loot && typeof draft.loot==='object') Object.assign(LOOT_CONFIG,draft.loot);
-      if(draft.weapons && typeof draft.weapons==='object'){
-        for(const [id,values] of Object.entries(draft.weapons)){
-          if(WEAPONS[id] && values && typeof values==='object') Object.assign(WEAPONS[id],values);
-        }
-      }
-    }
-  }catch(error){
-    console.warn('Studio data draft could not be loaded',error);
-  }
-}
 
 const $ = (id) => document.getElementById(id);
 const UI = {
@@ -44,6 +21,35 @@ const UI = {
   vehicleHud: $('vehicleHud'), vehicleSpeed: $('vehicleSpeed'), driveBtn: $('driveBtn'), driveMobileBtn: $('driveMobileBtn')
 };
 const mm = UI.minimap.getContext('2d');
+
+const GAME = {
+  mapHalf: 240,
+  playerSpeed: 14,
+  sprintSpeed: 18,
+  botSpeed: 8,
+  maxHp: 100,
+  magSize: 30,
+  reloadMs: 1500,
+  fireDelayMs: 120,
+  botCount: 29,
+  bulletDamage: 28,
+  botDamage: 8,
+  botFireMinMs: 620,
+  botFireMaxMs: 1050,
+  zoneStart: 232,
+  zoneEnd: 30,
+  zoneShrinkSeconds: 300,
+  zoneDamagePerSecond: 9,
+  spawnProtectionSeconds: 4
+};
+
+const WEAPONS = {
+  AR4:  { id:'AR4',  name:'AR-4',  ammoType:'5.56', mag:30, damage:27, fireDelay:105, reloadMs:1450, range:150 },
+  AR7:  { id:'AR7',  name:'AR-7',  ammoType:'5.56', mag:30, damage:32, fireDelay:125, reloadMs:1550, range:155 },
+  SMG9: { id:'SMG9', name:'SMG-9', ammoType:'9mm',  mag:35, damage:20, fireDelay:72,  reloadMs:1250, range:95  },
+  DMR5: { id:'DMR5', name:'DMR-5', ammoType:'5.56', mag:20, damage:43, fireDelay:235, reloadMs:1700, range:190 },
+  LMG5: { id:'LMG5', name:'LMG-5', ammoType:'5.56', mag:45, damage:25, fireDelay:92,  reloadMs:2150, range:145 }
+};
 
 const BACKPACK_MAX = 12;
 let lootPickups = [];
@@ -285,16 +291,11 @@ function spawnBattleRoyaleLoot() {
   clearLoot();
 
   const weaponIds=Object.keys(WEAPONS);
-  const sceneLootSpawns=activeSceneObjects
-    .filter(obj=>obj.type==='lootSpawn')
-    .map(obj=>[Number(obj.position?.[0])||0,Number(obj.position?.[2])||0]);
-  const clusters=sceneLootSpawns.length
-    ? sceneLootSpawns
-    : [
-        [0,0],[-35,-28],[34,-34],[-42,32],[37,33],[5,47],[-6,-54],
-        [-150,-125],[-118,-150],[148,122],[118,150],[-150,115],[150,-130],
-        [-85,138],[88,-142]
-      ];
+  const clusters=[
+    [0,0],[-35,-28],[34,-34],[-42,32],[37,33],[5,47],[-6,-54],
+    [-150,-125],[-118,-150],[148,122],[118,150],[-150,115],[150,-130],
+    [-85,138],[88,-142]
+  ];
 
   const clusterPoint=(index,spread=11)=>{
     const [cx,cz]=clusters[index%clusters.length];
@@ -306,20 +307,20 @@ function spawnBattleRoyaleLoot() {
     return randomGroundPoint(28);
   };
 
-  for(let i=0;i<LOOT_CONFIG.weaponCount;i++){
+  for(let i=0;i<30;i++){
     spawnLootAt(clusterPoint(i,13),'weapon',{weaponId:weaponIds[i%weaponIds.length]});
   }
 
-  for(let i=0;i<LOOT_CONFIG.ammoCount;i++){
+  for(let i=0;i<42;i++){
     const ammoType=i%3===0?'9mm':'5.56';
     spawnLootAt(clusterPoint(i+3,14),'ammo',{ammoType,amount:ammoType==='9mm'?35:30});
   }
 
-  for(let i=0;i<LOOT_CONFIG.bandageCount;i++){
+  for(let i=0;i<16;i++){
     spawnLootAt(clusterPoint(i+7,12),'bandage',{amount:1});
   }
 
-  for(let i=0;i<LOOT_CONFIG.armorCount;i++){
+  for(let i=0;i<10;i++){
     spawnLootAt(clusterPoint(i+11,12),'armor',{protection:i%4===0?40:25});
   }
 }
@@ -606,10 +607,10 @@ function createCar(color=0x536779) {
   });
 
   car.userData.speed=0;
-  car.userData.maxSpeed=CAR_CONFIG.maxSpeed;
-  car.userData.reverseSpeed=CAR_CONFIG.reverseSpeed;
-  car.userData.acceleration=CAR_CONFIG.acceleration;
-  car.userData.turnRate=CAR_CONFIG.turnRate;
+  car.userData.maxSpeed=31;
+  car.userData.reverseSpeed=12;
+  car.userData.acceleration=21;
+  car.userData.turnRate=1.55;
   car.userData.vehicle=true;
 
   scene.add(car);
@@ -656,23 +657,14 @@ function findSafeCarSpawn(x,z) {
 function spawnCars() {
   clearCars();
 
-  const sceneCarSpawns=activeSceneObjects
-    .filter(obj=>obj.type==='carSpawn')
-    .map(obj=>[
-      Number(obj.position?.[0])||0,
-      Number(obj.position?.[2])||0,
-      Number(obj.rotation?.[1])||0
-    ]);
-  const spawns=sceneCarSpawns.length
-    ? sceneCarSpawns
-    : [
-        [0,100,0],
-        [0,-115,Math.PI],
-        [100,0,Math.PI/2],
-        [-108,0,-Math.PI/2],
-        [125,-105,0],
-        [-125,100,Math.PI]
-      ];
+  const spawns=[
+    [0,100,0],
+    [0,-115,Math.PI],
+    [100,0,Math.PI/2],
+    [-108,0,-Math.PI/2],
+    [125,-105,0],
+    [-125,100,Math.PI]
+  ];
   const colors=[0x526b7c,0x7b5145,0x4f6652,0x77704a,0x53536f,0x6f4b55];
 
   spawns.forEach(([x,z,rot],index)=>{
@@ -920,111 +912,6 @@ function updateCarCamera(dt) {
   camera.updateProjectionMatrix();
 }
 
-let devFps=0;
-let devFrameCounter=0;
-let devFpsTimer=0;
-let devColliderGroup=null;
-
-function devStartGround() {
-  if(multiplayer) return;
-  resetMatch();
-  clearMatchCountdown();
-  started=true;
-  paused=false;
-  ended=false;
-  brPhase='ground';
-  playerDropped=true;
-  if(plane){ scene.remove(plane); plane=null; }
-  player.visible=true;
-  player.position.set(0,0,0);
-  UI.startOverlay.classList.add('hidden');
-  UI.endOverlay.classList.add('hidden');
-  setGameUiVisible(true);
-  UI.planeJumpBtn?.classList.add('hidden');
-  UI.jumpBtn?.classList.add('hidden');
-
-  bots.forEach(bot=>{
-    const point=randomGroundPoint(28);
-    bot.position.copy(point);
-    bot.position.y=0;
-    bot.visible=true;
-    bot.userData.dropped=true;
-    bot.userData.landed=true;
-    bot.userData.target=null;
-  });
-
-  zoneElapsed=0;
-  spawnProtection=999;
-  clock.getDelta();
-  showMessage('DEV · GROUND TEST STARTED',700);
-}
-
-function devGiveLoadout() {
-  if(!started || multiplayer) devStartGround();
-  inventory.weapons[0]={id:'AR4',magAmmo:WEAPONS.AR4.mag};
-  inventory.weapons[1]={id:'SMG9',magAmmo:WEAPONS.SMG9.mag};
-  inventory.ammo['5.56']=180;
-  inventory.ammo['9mm']=180;
-  inventory.bandage=Math.max(inventory.bandage,5);
-  inventory.armor=Math.max(inventory.armor,40);
-  activeWeaponSlot=0;
-  syncLegacyAmmo();
-  updateHud();
-  showMessage('DEV · TEST LOADOUT',550);
-}
-
-function devBringCar() {
-  if(!started || multiplayer) devStartGround();
-  if(!cars.length) spawnCars();
-  const car=cars[0];
-  if(!car) return;
-  const forward=new THREE.Vector3(Math.sin(yaw),0,Math.cos(yaw));
-  const spot=player.position.clone().addScaledVector(forward,-5);
-  spot.x=THREE.MathUtils.clamp(spot.x,-GAME.mapHalf+4,GAME.mapHalf-4);
-  spot.z=THREE.MathUtils.clamp(spot.z,-GAME.mapHalf+4,GAME.mapHalf-4);
-  car.position.set(spot.x,0,spot.z);
-  car.rotation.y=yaw+Math.PI;
-  car.userData.speed=0;
-  showMessage('DEV · CAR MOVED NEAR PLAYER',550);
-}
-
-function devEliminateBots() {
-  if(!started || multiplayer) return;
-  bots.forEach(bot=>{
-    bot.userData.hp=0;
-    bot.userData.alive=false;
-    bot.visible=false;
-  });
-  updateHud();
-  showMessage('DEV · BOTS CLEARED',550);
-}
-
-function devToggleColliders() {
-  if(devColliderGroup){
-    scene.remove(devColliderGroup);
-    devColliderGroup.traverse(obj=>{
-      obj.geometry?.dispose?.();
-      obj.material?.dispose?.();
-    });
-    devColliderGroup=null;
-    return false;
-  }
-
-  devColliderGroup=new THREE.Group();
-  for(const collider of colliders){
-    const w=Math.max(.05,collider.maxX-collider.minX);
-    const d=Math.max(.05,collider.maxZ-collider.minZ);
-    const mesh=new THREE.Mesh(
-      new THREE.BoxGeometry(w,2,d),
-      new THREE.MeshBasicMaterial({color:0xff4060,wireframe:true,transparent:true,opacity:.65})
-    );
-    mesh.position.set((collider.minX+collider.maxX)/2,1,(collider.minZ+collider.maxZ)/2);
-    devColliderGroup.add(mesh);
-  }
-  scene.add(devColliderGroup);
-  return true;
-}
-
 init();
 
 function init() {
@@ -1053,37 +940,6 @@ function init() {
   brPhase='lobby';
   showLobby();
   updateHud();
-
-  initDevTools({
-    enabled: STUDIO_TEST_MODE,
-    getStats: () => ({
-      fps: devFps,
-      phase: brPhase,
-      hp: Math.ceil(hp),
-      botsAlive: bots.filter(bot=>bot.userData.alive).length,
-      botsLanded: bots.filter(bot=>bot.userData.alive && bot.userData.landed).length,
-      loot: lootPickups.length,
-      cars: cars.length,
-      sceneObjects: scene.children.length,
-      zone: Math.round(currentZoneRadius())
-    }),
-    startGround: devStartGround,
-    heal: () => {
-      hp=GAME.maxHp;
-      updateHud();
-      showMessage('DEV · HP RESTORED',500);
-    },
-    giveLoadout: devGiveLoadout,
-    bringCar: devBringCar,
-    shrinkZone: () => {
-      zoneElapsed=Math.max(0,GAME.zoneShrinkSeconds-25);
-      showMessage('DEV · ZONE FAST FORWARD',650);
-    },
-    eliminateBots: devEliminateBots,
-    toggleColliders: devToggleColliders,
-    returnLobby: showLobby
-  });
-
   animate();
 }
 
@@ -1245,7 +1101,6 @@ document.addEventListener('mini3d:net-shot',event=>{
 });
 
 const STUDIO_SCENE_DRAFT_KEY='mini3d-studio-scene-v1';
-let activeSceneObjects=BASE_SCENE_OBJECTS;
 
 function loadStudioTestScene() {
   const params=new URLSearchParams(window.location.search);
@@ -1257,28 +1112,18 @@ function loadStudioTestScene() {
 
     const objects=[];
     for(const item of raw.objects.slice(0,300)){
-      if(!item || !['box','tree','carSpawn','lootSpawn'].includes(item.type)) continue;
+      if(!item || !['box','tree'].includes(item.type)) continue;
 
       const position=Array.isArray(item.position)?item.position:[0,0,0];
       const rotation=Array.isArray(item.rotation)?item.rotation:[0,0,0];
       const scale=Array.isArray(item.scale)?item.scale:[1,1,1];
       const size=Array.isArray(item.size)?item.size:[6,4,6];
-      const color=/^#[0-9a-f]{6}$/i.test(item.color||'')
-        ? item.color
-        : item.type==='tree'
-          ? '#2f633a'
-          : item.type==='carSpawn'
-            ? '#68c7ff'
-            : item.type==='lootSpawn'
-              ? '#f0c64b'
-              : '#8390a0';
+      const color=/^#[0-9a-f]{6}$/i.test(item.color||'')?item.color:(item.type==='tree'?'#2f633a':'#8390a0');
 
       const number=(value,fallback=0)=>Number.isFinite(Number(value))?Number(value):fallback;
       const clamp=(value,min,max)=>THREE.MathUtils.clamp(number(value),min,max);
 
       objects.push({
-        id:String(item.id||''),
-        name:String(item.name||item.type),
         type:item.type,
         position:[
           clamp(position[0],-GAME.mapHalf+2,GAME.mapHalf-2),
@@ -1311,8 +1156,6 @@ function loadStudioTestScene() {
 }
 
 function addStudioSceneObject(data) {
-  if(data.type==='carSpawn' || data.type==='lootSpawn') return;
-
   if(data.type==='tree'){
     const root=new THREE.Group();
 
@@ -1404,8 +1247,37 @@ function buildWorld() {
   }
 
   const studioTestScene=loadStudioTestScene();
-  activeSceneObjects=studioTestScene?.objects || BASE_SCENE_OBJECTS;
-  activeSceneObjects.forEach(addStudioSceneObject);
+
+  if(studioTestScene){
+    studioTestScene.objects.forEach(addStudioSceneObject);
+  } else {
+    addBox(-35, 0, -28, 18, 10, 22, 0xa76d42);
+    addBox(34, 0, -34, 24, 8, 18, 0x8390a0);
+    addBox(-42, 0, 32, 22, 12, 20, 0xb48a62);
+    addBox(37, 0, 33, 16, 9, 26, 0x787f8e);
+    addBox(5, 0, 47, 18, 7, 12, 0x8a755c);
+    addBox(-6, 0, -54, 20, 9, 14, 0x6f7f91);
+
+    // S1 outer settlements: spreads combat across the larger island.
+    addBox(-155,0,-132,28,10,34,0x8f6747);
+    addBox(-118,0,-158,22,8,24,0x75879a);
+    addBox(150,0,130,34,12,28,0x8d7a65);
+    addBox(120,0,160,20,9,32,0x6f8092);
+    addBox(-158,0,122,30,11,22,0xa17a55);
+    addBox(158,0,-138,24,9,30,0x7a8490);
+    addBox(-88,0,145,18,8,20,0x8d7359);
+    addBox(92,0,-150,20,8,18,0x72879a);
+
+    const wallColor = 0x8c8b86;
+    addBox(-18,0,-8,18,3,2,wallColor);
+    addBox(21,0,13,20,3,2,wallColor);
+    addBox(-7,0,23,2,3,18,wallColor);
+    addBox(53,0,-2,2,3,22,wallColor);
+    addBox(-56,0,-1,2,3,22,wallColor);
+
+    const treePositions = [[-70,-63],[-64,55],[-52,63],[-28,61],[-18,-69],[15,-67],[31,63],[59,57],[68,20],[65,-54],[49,-66],[-69,18],[-25,12],[25,-13],[51,14],[-48,-12]];
+    treePositions.forEach(([x,z]) => addTree(x,z));
+  }
 
   const zonePts = [];
   for (let i=0;i<=128;i++) {
@@ -2308,7 +2180,6 @@ function bindInputs() {
   addEventListener('resize', onResize);
   addEventListener('keydown', e => {
     if (['KeyW','KeyA','KeyS','KeyD','ShiftLeft','ShiftRight'].includes(e.code)) keys.add(e.code);
-    if (e.repeat && ['KeyR','KeyE','Digit1','Digit2','KeyB','KeyH','KeyF','KeyP','Escape','Space'].includes(e.code)) return;
     if (e.code === 'KeyR') beginReload();
     if (e.code === 'KeyE') pickupNearestLoot();
     if (e.code === 'Digit1') setActiveWeaponSlot(0);
@@ -2965,7 +2836,6 @@ function updateZone(dt) {
   if(pr>r) damagePlayer(GAME.zoneDamagePerSecond*dt);
   if (multiplayer) UI.zoneInfo.textContent='1V1 · ROOM ' + multiplayerRoom;
   bots.forEach(b=>{
-    if(!multiplayer && !b.userData.landed) return;
     if(b.userData.alive && Math.hypot(b.position.x,b.position.z)>r){
       b.userData.hp-=GAME.zoneDamagePerSecond*dt;
       if(b.userData.hp<=0){
@@ -3135,12 +3005,9 @@ function animate() {
       sendMultiplayerState();
       updateZone(dt);
     } else {
-      // Keep the plane and remaining bot drops alive even after the player lands.
-      if(plane || brPhase==='plane' || brPhase==='falling' || brPhase==='parachute'){
+      if(brPhase==='plane' || brPhase==='falling' || brPhase==='parachute'){
         updateFlight(dt);
-      }
-
-      if(brPhase==='ground'){
+      } else if(brPhase==='ground'){
         zoneElapsed+=dt;
         if(activeCar) updateCar(dt);
         else updatePlayer(dt);
@@ -3169,13 +3036,4 @@ function animate() {
   }
 
   renderer.render(scene,camera);
-
-  devFrameCounter++;
-  devFpsTimer+=dt;
-  if(devFpsTimer>=.5){
-    devFps=Math.round(devFrameCounter/devFpsTimer);
-    devFrameCounter=0;
-    devFpsTimer=0;
-    updateDevTools();
-  }
 }
