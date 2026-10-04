@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
   <meta name="theme-color" content="#0b1017" />
   <title>Mini 3D Studio</title>
-  <link rel="stylesheet" href="./studio.css?v=20261004-v1-final" />
+  <link rel="stylesheet" href="./studio.css?v=20261004-gui1" />
   <script type="importmap">
     {
       "imports": {
@@ -103,6 +103,19 @@
           <div class="system-row"><span>✦</span><b>Loot</b><small>Counts</small></div>
           <div class="data-explorer-note">COPY CURRENT generates the complete <code>game-config.js</code> module.</div>
         </div>
+
+        <div id="guiExplorer" class="hidden">
+          <div class="tree-title">GUI PRESETS</div>
+          <div id="guiGroupList" class="gui-group-list"></div>
+
+          <div class="tree-title space">ELEMENTS <span id="guiElementCount">0</span></div>
+          <div id="guiElementList" class="gui-element-list"></div>
+
+          <div class="data-explorer-note">
+            <strong>PLAYER GUI</strong><br>
+            MOVE / FIRE / RELOAD are marked <b>P</b>. Their personal CUSTOMIZE BUTTONS settings remain separate.
+          </div>
+        </div>
       </aside>
 
       <section class="editor panel">
@@ -110,6 +123,7 @@
           <button id="codeTab" class="editor-tab active">CODE</button>
           <button id="sceneTab" class="editor-tab">SCENE</button>
           <button id="dataTab" class="editor-tab">DATA</button>
+          <button id="guiTab" class="editor-tab">GUI</button>
           <span id="activeFileLabel">game.js</span>
         </div>
 
@@ -166,6 +180,31 @@
 
         <div id="dataPane" class="editor-pane data-pane hidden">
           <div id="dataEditorHost"></div>
+        </div>
+
+        <div id="guiPane" class="editor-pane gui-pane hidden">
+          <div class="gui-editor-toolbar">
+            <div class="gui-device-switch">
+              <button id="guiDeviceDesktop" class="active">DESKTOP 16:9</button>
+              <button id="guiDeviceMobile">MOBILE LANDSCAPE</button>
+            </div>
+            <div class="gui-preset-info">
+              <strong id="guiPresetTitle">LOBBY · DESKTOP</strong>
+              <label>SNAP
+                <select id="guiSnap">
+                  <option value="0">FREE</option>
+                  <option value="0.5">0.5%</option>
+                  <option value="1" selected>1%</option>
+                  <option value="2">2%</option>
+                  <option value="5">5%</option>
+                </select>
+              </label>
+            </div>
+          </div>
+          <div class="gui-canvas-wrap">
+            <div id="guiCanvas" class="gui-canvas"></div>
+          </div>
+          <div class="viewport-help">Drag = move · bottom-right handle = resize · Player-owned controls stay separate from developer layout</div>
         </div>
 
         <div class="statusbar">
@@ -288,6 +327,58 @@
           </div>
           <button id="resetDataBtn" class="secondary-action full">RESET DATA TO LIVE</button>
         </div>
+
+        <div id="guiInspector" class="hidden">
+          <div class="panel-title"><span>GUI PROPERTIES</span><b id="guiSelectedName">NONE</b></div>
+          <div id="guiNoSelection" class="empty-inspector">Select a GUI element in Explorer or Preview.</div>
+
+          <div id="guiProperties" class="hidden">
+            <div class="gui-selector-chip" id="guiSelectedSelector">—</div>
+
+            <div id="guiPlayerNote" class="gui-player-note hidden"></div>
+
+            <div class="property-title">POSITION %</div>
+            <div class="property-grid two">
+              <label>X<input id="guiPropX" type="number" min="0" max="100" step="0.5" /></label>
+              <label>Y<input id="guiPropY" type="number" min="0" max="100" step="0.5" /></label>
+            </div>
+
+            <div class="property-title">SIZE %</div>
+            <div class="property-grid two">
+              <label>W<input id="guiPropW" type="number" min="2" max="100" step="0.5" /></label>
+              <label>H<input id="guiPropH" type="number" min="2" max="100" step="0.5" /></label>
+            </div>
+
+            <div class="property-title">STYLE</div>
+            <div class="property-grid two">
+              <label>Opacity<input id="guiPropOpacity" type="number" min="10" max="100" step="1" /></label>
+              <label>Scale<input id="guiPropScale" type="number" min="40" max="200" step="5" /></label>
+              <label>Font<input id="guiPropFont" type="number" min="40" max="200" step="5" /></label>
+              <label>Radius<input id="guiPropRadius" type="number" min="0" max="50" step="1" /></label>
+              <label>Layer Z<input id="guiPropZ" type="number" min="1" max="300" step="1" /></label>
+            </div>
+
+            <label class="gui-enabled-row">
+              <input id="guiPropEnabled" type="checkbox" checked />
+              <span>Export this element</span>
+            </label>
+
+            <button id="guiResetSelected" class="secondary-action full">RESET SELECTED</button>
+          </div>
+
+          <div class="workflow-card">
+            <strong>DEVELOPER DEFAULT UI</strong>
+            <small>COPY CURRENT generates <code>ui-layout.css</code>. Replace that file to change the default Lobby/HUD/Overlay layout.</small>
+          </div>
+
+          <div class="workflow-card">
+            <strong>PLAYER CUSTOM GUI</strong>
+            <small>MOVE / FIRE / RELOAD use each player's existing CUSTOMIZE BUTTONS save. Use the button below only when you want to change their default starting positions.</small>
+            <button id="copyPlayerDefaultsBtn" class="secondary-action full">COPY PLAYER DEFAULTS</button>
+          </div>
+
+          <button id="guiResetGroup" class="secondary-action full">RESET CURRENT GUI GROUP</button>
+        </div>
       </aside>
     </div>
 
@@ -314,6 +405,6 @@
     </div>
   </div>
 
-  <script type="module" src="./studio.js?v=20261004-v1-final"></script>
+  <script type="module" src="./studio.js?v=20261004-gui1"></script>
 </body>
 </html>
