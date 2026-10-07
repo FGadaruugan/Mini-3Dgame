@@ -1,4 +1,11 @@
 import * as THREE from './vendor/three.module.min.js';
+import {
+  createHumanoidCharacter,
+  getCharacterHitMeshes,
+  getHitMultiplier,
+  pulseCharacterAction,
+  updateHumanoidAnimation
+} from './character-system.js';
 
 const $ = (id) => document.getElementById(id);
 const UI = {
@@ -1502,41 +1509,28 @@ function updateOneVOneMatch() {
 }
 
 function createRemotePlayer() {
-  if (remotePlayer) {
+  if(remotePlayer){
     scene.remove(remotePlayer);
-    remotePlayer = null;
+    remotePlayer=null;
   }
 
-  const group = new THREE.Group();
-  const enemyMat = new THREE.MeshStandardMaterial({ color:0xb84040, roughness:.62 });
-  const darkMat = new THREE.MeshStandardMaterial({ color:0x222a34, roughness:.58 });
-  const skinMat = new THREE.MeshStandardMaterial({ color:0xc99372, roughness:.72 });
+  remotePlayer=createHumanoidCharacter({
+    name:'RemotePlayer',
+    enemy:true,
+    outfitColor:0x8f3940,
+    pantsColor:0x2a252a,
+    vestColor:0x5b3034,
+    skinColor:0xc99372,
+    hairColor:0x17191e,
+    shoeColor:0x101317,
+    accentColor:0xe06a55
+  });
 
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(.92,1.35,.55),enemyMat);
-  torso.position.y=1.72;
-  torso.castShadow=true;
-  group.add(torso);
-
-  const head = new THREE.Mesh(new THREE.SphereGeometry(.38,12,10),skinMat);
-  head.position.y=2.72;
-  head.castShadow=true;
-  group.add(head);
-
-  const leg1 = new THREE.Mesh(new THREE.BoxGeometry(.28,.9,.32),darkMat);
-  leg1.position.set(-.23,.62,0);
-  leg1.castShadow=true;
-  group.add(leg1);
-
-  const leg2=leg1.clone();
-  leg2.position.x=.23;
-  group.add(leg2);
-
-  group.userData.remote=true;
-  group.userData.hp=100;
-  group.userData.userId=null;
-  group.visible=false;
-  scene.add(group);
-  remotePlayer=group;
+  remotePlayer.userData.remote=true;
+  remotePlayer.userData.hp=100;
+  remotePlayer.userData.userId=null;
+  remotePlayer.visible=false;
+  scene.add(remotePlayer);
 }
 
 async function startMultiplayerMatch(detail) {
@@ -1590,12 +1584,22 @@ async function startMultiplayerMatch(detail) {
 }
 
 function updateRemotePlayer(dt) {
-  if (!multiplayer || !remotePlayer || !remotePlayer.visible) return;
+  if(!multiplayer || !remotePlayer || !remotePlayer.visible) return;
+
+  const before=remotePlayer.position.clone();
   const t=1-Math.exp(-14*dt);
   remotePlayer.position.x=THREE.MathUtils.lerp(remotePlayer.position.x,remoteTarget.x,t);
   remotePlayer.position.y=THREE.MathUtils.lerp(remotePlayer.position.y,remoteTarget.y,t);
   remotePlayer.position.z=THREE.MathUtils.lerp(remotePlayer.position.z,remoteTarget.z,t);
   remotePlayer.rotation.y=lerpAngle(remotePlayer.rotation.y,remoteTarget.yaw,t);
+
+  const moved=remotePlayer.position.distanceTo(before);
+  updateHumanoidAnimation(remotePlayer,{
+    moving:moved>.0008,
+    speed:dt>0?moved/dt:0,
+    aiming:true,
+    dead:!remoteTarget.alive
+  },dt);
 }
 
 function sendMultiplayerState() {
@@ -1715,6 +1719,7 @@ document.addEventListener('mini3d:net-damage',event=>{
 
 document.addEventListener('mini3d:net-shot',event=>{
   if (!multiplayer || event.detail.roomCode!==multiplayerRoom) return;
+  pulseCharacterAction(remotePlayer,'fire',1);
   const a=new THREE.Vector3(event.detail.ox||0,event.detail.oy||0,event.detail.oz||0);
   const b=new THREE.Vector3(event.detail.ex||0,event.detail.ey||0,event.detail.ez||0);
   spawnTracer(a,b,0xff775c);
@@ -1808,73 +1813,19 @@ function addTree(x,z) {
 }
 
 function createPlayer() {
-  player = new THREE.Group();
-
-  const skinMat = new THREE.MeshStandardMaterial({ color:0xc99372, roughness:.72 });
-  const suitMat = new THREE.MeshStandardMaterial({ color:0x1e2935, roughness:.58, metalness:.08 });
-  const vestMat = new THREE.MeshStandardMaterial({ color:0x35485a, roughness:.5, metalness:.12 });
-  const clothMat = new THREE.MeshStandardMaterial({ color:0x304f73, roughness:.72 });
-  const darkMat = new THREE.MeshStandardMaterial({ color:0x111820, roughness:.52, metalness:.18 });
-  const accentMat = new THREE.MeshStandardMaterial({
-    color:0xd5ad35,
-    roughness:.34,
-    metalness:.58,
-    emissive:0x2c2104,
-    emissiveIntensity:.16
+  player=createHumanoidCharacter({
+    name:'Player',
+    outfitColor:0x31567e,
+    pantsColor:0x202a34,
+    vestColor:0x3d5060,
+    skinColor:0xc99372,
+    hairColor:0x151a20,
+    shoeColor:0x10161d,
+    accentColor:0xd6ae38
   });
 
-  const addPart = (geometry, material, x, y, z, rx=0, ry=0, rz=0) => {
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.position.set(x,y,z);
-    mesh.rotation.set(rx,ry,rz);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    player.add(mesh);
-    return mesh;
-  };
-
-  // Boots + legs
-  addPart(new THREE.BoxGeometry(.34,.24,.55), darkMat, -.28,.14,-.08);
-  addPart(new THREE.BoxGeometry(.34,.24,.55), darkMat,  .28,.14,-.08);
-  addPart(new THREE.CylinderGeometry(.17,.20,1.10,10), suitMat, -.28,.78,0);
-  addPart(new THREE.CylinderGeometry(.17,.20,1.10,10), suitMat,  .28,.78,0);
-  addPart(new THREE.CylinderGeometry(.205,.18,.16,10), accentMat, -.28,.38,0);
-  addPart(new THREE.CylinderGeometry(.205,.18,.16,10), accentMat,  .28,.38,0);
-
-  // Hips, torso, armor
-  addPart(new THREE.BoxGeometry(.84,.38,.48), suitMat, 0,1.42,0);
-  addPart(new THREE.BoxGeometry(.94,1.12,.52), clothMat, 0,2.12,0);
-  addPart(new THREE.BoxGeometry(1.04,.72,.60), vestMat, 0,2.30,-.03);
-  addPart(new THREE.BoxGeometry(.72,.13,.64), accentMat, 0,1.68,-.02);
-  addPart(new THREE.BoxGeometry(.10,.62,.66), accentMat, -.39,2.30,-.01);
-  addPart(new THREE.BoxGeometry(.10,.62,.66), accentMat,  .39,2.30,-.01);
-
-  // Shoulders + arms
-  addPart(new THREE.SphereGeometry(.23,10,8), vestMat, -.61,2.54,0);
-  addPart(new THREE.SphereGeometry(.23,10,8), vestMat,  .61,2.54,0);
-  addPart(new THREE.CylinderGeometry(.13,.15,.82,10), suitMat, -.70,2.12,0,0,0,-.16);
-  addPart(new THREE.CylinderGeometry(.13,.15,.82,10), suitMat,  .70,2.12,0,0,0, .16);
-  addPart(new THREE.SphereGeometry(.15,10,8), skinMat, -.76,1.68,0);
-  addPart(new THREE.SphereGeometry(.15,10,8), skinMat,  .76,1.68,0);
-
-  // Neck + head + hair/helmet shell
-  addPart(new THREE.CylinderGeometry(.13,.15,.20,10), skinMat, 0,2.85,0);
-  addPart(new THREE.SphereGeometry(.40,16,12), skinMat, 0,3.27,0);
-  const hair = addPart(new THREE.SphereGeometry(.425,16,12), darkMat, 0,3.38,.03);
-  hair.scale.set(1.03,.62,1.04);
-  addPart(new THREE.BoxGeometry(.52,.09,.10), darkMat, 0,3.27,-.39);
-
-  // Backpack and shoulder weapon.
-  addPart(new THREE.BoxGeometry(.64,.82,.30), darkMat, 0,2.22,.42);
-  const gun = addPart(new THREE.BoxGeometry(.17,.18,1.55), darkMat, .55,2.72,-.20,0,-.18,-.62);
-  const barrel = addPart(new THREE.BoxGeometry(.10,.10,.72), accentMat, .88,2.95,-.50,0,-.18,-.62);
-  addPart(new THREE.BoxGeometry(.22,.35,.17), darkMat, .43,2.53,-.20,0,-.18,-.62);
-
-  // Small chest emblem for a stronger lobby silhouette.
-  const emblem = addPart(new THREE.OctahedronGeometry(.13), accentMat, 0,2.42,-.34);
-  emblem.rotation.z=Math.PI/4;
-
-  player.userData.gun = gun;
+  player.userData.hp=GAME.maxHp;
+  player.userData.alive=true;
   scene.add(player);
 }
 
@@ -2192,6 +2143,8 @@ function damageBotByBot(target,amount,killer) {
 
 function botShootTarget(bot,targetInfo,dist) {
   const target=targetInfo.obj;
+  pulseCharacterAction(bot,'fire',1);
+  bot.userData.firePulse=.12;
   const origin=bot.position.clone().add(new THREE.Vector3(0,2.25,0));
   const end=target.position.clone().add(new THREE.Vector3(0,2,0));
   const accuracy=THREE.MathUtils.clamp(.82-dist*.006,.32,.78);
@@ -2211,23 +2164,30 @@ function botShootTarget(bot,targetInfo,dist) {
 }
 
 function makeBot(index) {
-  const root = new THREE.Group();
-  const colors = [0x8b3944,0x355b8f,0x7d6b2f,0x5d3f7c,0x2f6f68];
-  const body = new THREE.Mesh(new THREE.CapsuleGeometry(.75,1.65,4,8), new THREE.MeshStandardMaterial({ color: colors[index % colors.length] }));
-  body.position.y = 1.65;
-  body.castShadow = matchMedia('(pointer:fine)').matches;
-  root.add(body);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(.45,12,9), new THREE.MeshStandardMaterial({ color:0xc89470 }));
-  head.position.y = 3.08;
-  head.castShadow = matchMedia('(pointer:fine)').matches;
-  root.add(head);
-  const gun = new THREE.Mesh(new THREE.BoxGeometry(.16,.16,1.25), new THREE.MeshStandardMaterial({ color:0x24272b }));
-  gun.position.set(.5,2.15,-.5);
-  root.add(gun);
-  root.userData = {
-    hp: 100, alive: true, gun, nextShot: 700 + Math.random()*800,
-    strafe: Math.random() < .5 ? -1 : 1, think: Math.random()*1.2
-  };
+  const colors=[0x8b3944,0x355b8f,0x7d6b2f,0x5d3f7c,0x2f6f68];
+  const accents=[0xd4a845,0x7fb2e1,0xd4bf62,0xb090dc,0x68c1ae];
+
+  const root=createHumanoidCharacter({
+    name:'BotCharacter',
+    bot:true,
+    outfitColor:colors[index%colors.length],
+    pantsColor:0x242b33,
+    vestColor:0x3a4652,
+    skinColor:0xc89470,
+    hairColor:0x171a1f,
+    shoeColor:0x11161c,
+    accentColor:accents[index%accents.length]
+  });
+
+  Object.assign(root.userData,{
+    hp:100,
+    alive:true,
+    nextShot:700+Math.random()*800,
+    strafe:Math.random()<.5?-1:1,
+    think:Math.random()*1.2,
+    firePulse:0
+  });
+
   scene.add(root);
   return root;
 }
@@ -3137,6 +3097,7 @@ function beginReload() {
   if(slot.magAmmo>=def.mag || available<=0) return;
 
   reloading=true;
+  pulseCharacterAction(player,'reload',1);
   UI.reloadState.textContent='Reloading…';
   const startedAt=performance.now();
 
@@ -3179,6 +3140,7 @@ function shoot() {
   }
 
   slot.magAmmo--;
+  pulseCharacterAction(player,'fire',1);
   syncLegacyAmmo();
   updateHud();
 
@@ -3187,16 +3149,17 @@ function shoot() {
   raycaster.set(origin,dir);
   raycaster.far=weapon?.range || 140;
   const liveMeshes=[];
-  if (multiplayer && remotePlayer?.visible) {
-    remotePlayer.children.forEach(c=>{
-      c.userData.remotePlayer=remotePlayer;
-      liveMeshes.push(c);
+  if(multiplayer && remotePlayer?.visible){
+    getCharacterHitMeshes(remotePlayer).forEach(mesh=>{
+      mesh.userData.remotePlayer=remotePlayer;
+      liveMeshes.push(mesh);
     });
-  } else {
-    bots.forEach(b=>{
-      if(b.userData.alive) b.children.forEach(c=>{
-        c.userData.bot=b;
-        liveMeshes.push(c);
+  }else{
+    bots.forEach(bot=>{
+      if(!bot.userData.alive) return;
+      getCharacterHitMeshes(bot).forEach(mesh=>{
+        mesh.userData.bot=bot;
+        liveMeshes.push(mesh);
       });
     });
   }
@@ -3211,19 +3174,18 @@ function shoot() {
     const hit=hits[0];
     end=hit.point.clone();
 
-    if (multiplayer && hit.object.userData.remotePlayer) {
+    if(multiplayer && hit.object.userData.remotePlayer){
       if(remoteTarget.shielded){
         showMessage('OPPONENT SHIELD',260);
       }else{
-        const headshot=hit.object===remotePlayer.children[1];
-        const amount=headshot ? weapon.damage*1.65 : weapon.damage;
-        window.Mini3DNet?.sendDamage(remoteUserId,amount);
+        const multiplier=getHitMultiplier(remotePlayer,hit.object);
+        window.Mini3DNet?.sendDamage(remoteUserId,weapon.damage*multiplier);
         showHitmarker();
       }
-    } else {
+    }else{
       const bot=hit.object.userData.bot;
-      const headshot=hit.object===bot.children[1];
-      damageBot(bot, headshot ? weapon.damage*1.65 : weapon.damage);
+      const multiplier=getHitMultiplier(bot,hit.object);
+      damageBot(bot,weapon.damage*multiplier);
       showHitmarker();
     }
   }
@@ -3240,6 +3202,7 @@ function shoot() {
 
 function damageBot(bot, amount) {
   if(!bot.userData.alive) return;
+  pulseCharacterAction(bot,'hit',1);
   bot.userData.hp -= amount;
   if(bot.userData.hp<=0){
     bot.userData.alive=false;
@@ -3253,6 +3216,7 @@ function damageBot(bot, amount) {
 
 function damagePlayer(amount) {
   if(ended || spawnProtection>0) return;
+  pulseCharacterAction(player,'hit',1);
   const reduced=amount*(1-THREE.MathUtils.clamp(inventory.armor,0,60)/100);
   hp = Math.max(0,hp-reduced);
   updateHud();
@@ -3331,6 +3295,17 @@ function updatePlayer(dt) {
   bodyYaw=lerpAngle(bodyYaw,desiredBodyYaw,1-Math.exp(-12*dt));
   player.rotation.y=bodyYaw;
 
+  updateHumanoidAnimation(player,{
+    moving:isMoving,
+    speed:isMoving?speed:0,
+    sprinting:isMoving && (keys.has('ShiftLeft')||keys.has('ShiftRight')),
+    aiming:aiming || mobile.firing || recentlyFired,
+    reloading,
+    airborne:brPhase==='falling' || brPhase==='parachute',
+    crouching:false,
+    dead:hp<=0
+  },dt);
+
   updateLootInteraction();
   updateCarInteraction();
   if(mobile.firing) shoot();
@@ -3371,8 +3346,9 @@ function updateCamera() {
 
 function updateLobby(dt) {
   lobbyTime+=dt;
+  updateHumanoidAnimation(player,{lobby:true,moving:false,speed:0},dt);
 
-  // Subtle idle motion instead of a static model.
+  // Subtle root motion plus rig breathing/idle animation.
   player.position.y=.28+Math.sin(lobbyTime*1.7)*.025;
   player.rotation.y=lobbyCharacterYaw+Math.sin(lobbyTime*.55)*.028;
 
@@ -3423,7 +3399,10 @@ function updateBots(dt) {
     }
 
     const targetInfo=bot.userData.target;
-    if(!targetInfo) continue;
+    if(!targetInfo){
+      updateHumanoidAnimation(bot,{moving:false,speed:0},dt);
+      continue;
+    }
 
     const target=targetInfo.obj;
     const toTarget=target.position.clone().sub(bot.position);
@@ -3445,12 +3424,14 @@ function updateBots(dt) {
 
     const before=bot.position.clone();
     moveWithCollision(bot,move,.95);
+    const moved=bot.position.distanceTo(before);
     if(bot.position.distanceToSquared(before)<.002 && move.lengthSq()>0){
       bot.userData.strafe*=-1;
       bot.userData.think=0;
     }
 
     bot.userData.nextShot-=dt*1000;
+    bot.userData.firePulse=Math.max(0,(bot.userData.firePulse||0)-dt);
     if(
       dist<70 &&
       bot.userData.nextShot<=0 &&
@@ -3459,6 +3440,14 @@ function updateBots(dt) {
       bot.userData.nextShot=GAME.botFireMinMs+Math.random()*(GAME.botFireMaxMs-GAME.botFireMinMs);
       botShootTarget(bot,targetInfo,dist);
     }
+
+    updateHumanoidAnimation(bot,{
+      moving:moved>.001,
+      speed:dt>0?moved/dt:0,
+      sprinting:dist>34,
+      aiming:dist<70,
+      dead:!bot.userData.alive
+    },dt);
   }
 }
 
