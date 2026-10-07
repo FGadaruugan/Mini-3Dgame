@@ -2,8 +2,11 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { BASE_SCENE_OBJECTS } from '../scene-data.js';
+import { ONEVONE_MAP } from '../onevone-map.js';
 
 export const SCENE_DRAFT_KEY='mini3d-studio-scene-v1';
+export const ONEVONE_SCENE_DRAFT_KEY='mini3d-studio-onevone-scene-v1';
+const SCENE_MODE_KEY='mini3d-studio-scene-mode-v1';
 
 const $=id=>document.getElementById(id);
 const clamp=(value,min,max)=>Math.min(max,Math.max(min,Number(value)||0));
@@ -35,17 +38,38 @@ let historyIndex=-1;
 let transformBefore=null;
 let lastValidation=[];
 let autosaveTimer=0;
+let mapMode=localStorage.getItem(SCENE_MODE_KEY)==='onevone'?'onevone':'battleRoyale';
+let baseWorldGroup=null;
+
+function currentDraftKey(){
+  return mapMode==='onevone'?ONEVONE_SCENE_DRAFT_KEY:SCENE_DRAFT_KEY;
+}
+
+function currentBaseObjects(){
+  return mapMode==='onevone'?(ONEVONE_MAP.objects||[]):BASE_SCENE_OBJECTS;
+}
+
+function currentDefaultName(){
+  return mapMode==='onevone'?(ONEVONE_MAP.name||'1V1 Arena'):'S1 Green Valley';
+}
 
 function cloneDefaults(){
-  return {
+  const base={
     version:1,
-    name:'S1 Green Valley',
-    objects:BASE_SCENE_OBJECTS.map(obj=>normalizeObject(clone(obj))).filter(Boolean)
+    name:currentDefaultName(),
+    objects:currentBaseObjects().map(obj=>normalizeObject(clone(obj))).filter(Boolean)
   };
+  if(mapMode==='onevone'){
+    base.mapHalf=clamp(ONEVONE_MAP.mapHalf||70,30,220);
+    base.groundColor=/^#[0-9a-f]{6}$/i.test(ONEVONE_MAP.groundColor||'')
+      ? ONEVONE_MAP.groundColor
+      : '#536b47';
+  }
+  return base;
 }
 
 function normalizeObject(raw,index=0){
-  if(!raw || !['box','tree','carSpawn','lootSpawn'].includes(raw.type)) return null;
+  if(!raw || !['box','tree','carSpawn','lootSpawn','spawnA','spawnB'].includes(raw.type)) return null;
 
   const type=raw.type;
   const position=Array.isArray(raw.position)?raw.position:[0,0,0];
@@ -60,7 +84,11 @@ function normalizeObject(raw,index=0){
         ? '#68c7ff'
         : type==='lootSpawn'
           ? '#f0c64b'
-          : '#8390a0';
+          : type==='spawnA'
+            ? '#62c8ff'
+            : type==='spawnB'
+              ? '#ff7a72'
+              : '#8390a0';
 
   return {
     id:String(raw.id||('object-'+index)).slice(0,80),
@@ -95,30 +123,54 @@ function normalizeObject(raw,index=0){
 }
 
 function loadSceneData(){
+  const defaults=cloneDefaults();
   try{
-    const raw=JSON.parse(localStorage.getItem(SCENE_DRAFT_KEY)||'null');
+    const raw=JSON.parse(localStorage.getItem(currentDraftKey())||'null');
     if(raw?.version===1 && Array.isArray(raw.objects)){
       const objects=raw.objects.slice(0,500).map(normalizeObject).filter(Boolean);
-      const ids=new Set(objects.map(obj=>obj.id));
 
-      // v0.2 drafts predate semantic spawn markers. Merge only missing marker defaults.
-      for(const base of BASE_SCENE_OBJECTS){
-        if(!['carSpawn','lootSpawn'].includes(base.type) || ids.has(base.id)) continue;
-        const migrated=normalizeObject(clone(base));
-        if(migrated){
-          objects.push(migrated);
-          ids.add(migrated.id);
+      if(mapMode==='battleRoyale'){
+        const ids=new Set(objects.map(obj=>obj.id));
+        // Older S1 drafts predate semantic car/loot markers.
+        for(const base of BASE_SCENE_OBJECTS){
+          if(!['carSpawn','lootSpawn'].includes(base.type) || ids.has(base.id)) continue;
+          const migrated=normalizeObject(clone(base));
+          if(migrated){
+            objects.push(migrated);
+            ids.add(migrated.id);
+          }
         }
       }
 
       return {
         version:1,
-        name:String(raw.name||'S1 Green Valley').slice(0,60),
+        name:String(raw.name||currentDefaultName()).slice(0,60),
+        ...(mapMode==='onevone'?{
+          mapHalf:clamp(raw.mapHalf||defaults.mapHalf||70,30,220),
+          groundColor:/^#[0-9a-f]{6}$/i.test(raw.groundColor||'')
+            ? raw.groundColor
+            : (defaults.groundColor||'#536b47')
+        }:{}),
         objects
       };
     }
   }catch{}
-  return cloneDefaults();
+  return defaults;
+}
+
+function sceneDraftPayload(){
+  return {
+    version:1,
+    name:sceneData?.name||currentDefaultName(),
+    ...(mapMode==='onevone'?{
+      mapHalf:clamp(sceneData?.mapHalf||70,30,220),
+      groundColor:/^#[0-9a-f]{6}$/i.test(sceneData?.groundColor||'')
+        ? sceneData.groundColor
+        : '#536b47'
+    }:{}),
+    updatedAt:new Date().toISOString(),
+    objects:(sceneData?.objects||[]).map(obj=>clone(obj))
+  };
 }
 
 function sceneObjectById(id){
@@ -190,6 +242,29 @@ function makeMarker(data){
     arrow.position.set(0,1.25,2.6);
     arrow.userData.colorTarget=true;
     group.add(arrow);
+  }else if(data.type==='spawnA' || data.type==='spawnB'){
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(2.2,.2,8,32),mat);
+    ring.rotation.x=Math.PI/2;
+    ring.position.y=.16;
+    ring.userData.colorTarget=true;
+    group.add(ring);
+
+    const arrow=new THREE.Mesh(
+      new THREE.ConeGeometry(.65,2.2,8),
+      new THREE.MeshBasicMaterial({color:data.color,depthTest:false})
+    );
+    arrow.rotation.x=Math.PI/2;
+    arrow.position.set(0,1.15,-2.4);
+    arrow.userData.colorTarget=true;
+    group.add(arrow);
+
+    const post=new THREE.Mesh(
+      new THREE.CylinderGeometry(.16,.16,3.2,8),
+      new THREE.MeshBasicMaterial({color:data.color,transparent:true,opacity:.8,depthTest:false})
+    );
+    post.position.y=1.6;
+    post.userData.colorTarget=true;
+    group.add(post);
   }else{
     const ring=new THREE.Mesh(
       new THREE.TorusGeometry(2.2,.16,8,28),
@@ -223,7 +298,7 @@ function applyTransform(root,data){
 function createRoot(data){
   const root=data.type==='tree'
     ? makeTree(data)
-    : (data.type==='carSpawn' || data.type==='lootSpawn')
+    : ['carSpawn','lootSpawn','spawnA','spawnB'].includes(data.type)
       ? makeMarker(data)
       : makeBox(data);
   root.userData.sceneId=data.id;
@@ -270,39 +345,133 @@ function rebuildScene({keepSelection=false}={}){
   notifyState();
 }
 
+function disposeBaseWorld(){
+  if(!baseWorldGroup) return;
+  baseWorldGroup.traverse(child=>{
+    child.geometry?.dispose?.();
+    if(child.material){
+      const materials=Array.isArray(child.material)?child.material:[child.material];
+      materials.forEach(mat=>mat.dispose?.());
+    }
+  });
+  scene.remove(baseWorldGroup);
+  baseWorldGroup=null;
+}
+
 function buildBaseWorld(){
-  scene.background=new THREE.Color(0x8fb1c9);
-  scene.fog=new THREE.Fog(0x8fb1c9,170,620);
-  scene.add(new THREE.HemisphereLight(0xdcecff,0x40552d,2.3));
+  disposeBaseWorld();
+  baseWorldGroup=new THREE.Group();
+  baseWorldGroup.name='STUDIO_BASE_WORLD';
+  scene.add(baseWorldGroup);
+
+  const oneVOne=mapMode==='onevone';
+  const half=oneVOne?clamp(sceneData?.mapHalf||70,30,220):240;
+  const size=half*2;
+  const groundColor=oneVOne
+    ? (/^#[0-9a-f]{6}$/i.test(sceneData?.groundColor||'')?sceneData.groundColor:'#536b47')
+    : '#5f8a45';
+
+  scene.background=new THREE.Color(oneVOne?0x7893a7:0x8fb1c9);
+  scene.fog=new THREE.Fog(oneVOne?0x7893a7:0x8fb1c9,oneVOne?85:170,oneVOne?Math.max(260,size*2.2):620);
+
+  baseWorldGroup.add(new THREE.HemisphereLight(0xdcecff,oneVOne?0x343b2b:0x40552d,2.3));
 
   const sun=new THREE.DirectionalLight(0xffffff,2.35);
   sun.position.set(55,80,35);
-  scene.add(sun);
+  baseWorldGroup.add(sun);
 
   const ground=new THREE.Mesh(
-    new THREE.PlaneGeometry(480,480),
-    new THREE.MeshStandardMaterial({color:0x5f8a45,roughness:1})
+    new THREE.PlaneGeometry(size,size),
+    new THREE.MeshStandardMaterial({color:groundColor,roughness:1})
   );
   ground.rotation.x=-Math.PI/2;
   ground.receiveShadow=true;
   ground.userData.editorGround=true;
-  scene.add(ground);
+  baseWorldGroup.add(ground);
 
-  const roadMat=new THREE.MeshStandardMaterial({color:0x4d5157,roughness:1});
-  for(const [x,z,w,d] of [[0,0,16,480],[0,0,480,12],[-125,55,10,220],[125,-60,10,230]]){
-    const road=new THREE.Mesh(new THREE.BoxGeometry(w,.08,d),roadMat);
-    road.position.set(x,.04,z);
-    road.receiveShadow=true;
-    road.userData.editorGround=true;
-    scene.add(road);
+  if(!oneVOne){
+    const roadMat=new THREE.MeshStandardMaterial({color:0x4d5157,roughness:1});
+    for(const [x,z,w,d] of [[0,0,16,480],[0,0,480,12],[-125,55,10,220],[125,-60,10,230]]){
+      const road=new THREE.Mesh(new THREE.BoxGeometry(w,.08,d),roadMat);
+      road.position.set(x,.04,z);
+      road.receiveShadow=true;
+      road.userData.editorGround=true;
+      baseWorldGroup.add(road);
+    }
   }
 
-  const grid=new THREE.GridHelper(480,96,0x5e7183,0x41515f);
+  const divisions=oneVOne?Math.max(28,Math.round(size/2.5)):96;
+  const grid=new THREE.GridHelper(size,divisions,0x5e7183,0x41515f);
   grid.position.y=.09;
   const mats=Array.isArray(grid.material)?grid.material:[grid.material];
   mats.forEach(mat=>{mat.transparent=true;mat.opacity=.34;});
   grid.userData.editorGround=true;
-  scene.add(grid);
+  baseWorldGroup.add(grid);
+}
+
+function renderSceneMapUi(){
+  if($('sceneMapSelect')) $('sceneMapSelect').value=mapMode;
+  $('onevoneMapSettings')?.classList.toggle('hidden',mapMode!=='onevone');
+  $('addCarSpawnBtn')?.classList.toggle('hidden',mapMode==='onevone');
+  $('addLootSpawnBtn')?.classList.toggle('hidden',mapMode==='onevone');
+  $('addSpawnABtn')?.classList.toggle('hidden',mapMode!=='onevone');
+  $('addSpawnBBtn')?.classList.toggle('hidden',mapMode!=='onevone');
+
+  if($('sceneMapHint')){
+    $('sceneMapHint').textContent=mapMode==='onevone'
+      ? 'Dedicated multiplayer arena · exports onevone-map.js'
+      : 'Battle Royale world · exports scene-data.js';
+  }
+
+  if(mapMode==='onevone'){
+    if($('sceneMapHalf')) $('sceneMapHalf').value=clamp(sceneData?.mapHalf||70,30,220);
+    if($('sceneGroundColor')) $('sceneGroundColor').value=/^#[0-9a-f]{6}$/i.test(sceneData?.groundColor||'')
+      ? sceneData.groundColor
+      : '#536b47';
+  }
+}
+
+function switchMapMode(nextMode){
+  const next=nextMode==='onevone'?'onevone':'battleRoyale';
+  if(next===mapMode) return;
+
+  if(canEdit && sceneDirty) saveSceneDraft();
+
+  mapMode=next;
+  localStorage.setItem(SCENE_MODE_KEY,mapMode);
+  searchText='';
+  if($('sceneSearch')) $('sceneSearch').value='';
+  selectedId=null;
+  transform?.detach();
+
+  sceneData=loadSceneData();
+  sceneDirty=false;
+  history=[];
+  historyIndex=-1;
+
+  buildBaseWorld();
+  rebuildScene();
+  pushHistory();
+  renderSceneMapUi();
+
+  const oneVOne=mapMode==='onevone';
+  const distance=oneVOne?95:115;
+  camera.position.set(distance,oneVOne?72:95,distance);
+  orbit.target.set(0,0,0);
+  orbit.update();
+
+  logFn('Scene map switched → '+(oneVOne?'1V1 ARENA':'S1 GREEN VALLEY'),'ok');
+}
+
+function applyMapSettings(){
+  if(!canEdit || mapMode!=='onevone') return;
+  sceneData.mapHalf=clamp($('sceneMapHalf')?.value||70,30,220);
+  const color=String($('sceneGroundColor')?.value||'#536b47');
+  sceneData.groundColor=/^#[0-9a-f]{6}$/i.test(color)?color:'#536b47';
+  buildBaseWorld();
+  markDirty();
+  pushHistory();
+  renderSceneMapUi();
 }
 
 function filteredObjects(){
@@ -328,7 +497,7 @@ function renderObjectList(){
     const select=document.createElement('button');
     select.className='scene-object';
     select.innerHTML=
-      '<span>'+({tree:'▲',box:'■',carSpawn:'C',lootSpawn:'✦'}[obj.type]||'•')+'</span>'+
+      '<span>'+({tree:'▲',box:'■',carSpawn:'C',lootSpawn:'✦',spawnA:'A',spawnB:'B'}[obj.type]||'•')+'</span>'+
       '<strong>'+escapeHtml(obj.name)+'</strong>'+
       '<small>'+obj.type+'</small>';
     select.addEventListener('click',()=>selectObject(obj.id,true));
@@ -471,12 +640,7 @@ function markDirty(){
   clearTimeout(autosaveTimer);
   autosaveTimer=setTimeout(()=>{
     if(!sceneData || !canEdit) return;
-    localStorage.setItem(SCENE_DRAFT_KEY,JSON.stringify({
-      version:1,
-      name:sceneData.name||'S1 Green Valley',
-      updatedAt:new Date().toISOString(),
-      objects:sceneData.objects.map(obj=>clone(obj))
-    }));
+    localStorage.setItem(currentDraftKey(),JSON.stringify(sceneDraftPayload()));
   },700);
   notifyState();
 }
@@ -488,7 +652,9 @@ function notifyState(){
     saved:Boolean(localStorage.getItem(SCENE_DRAFT_KEY)),
     canUndo:historyIndex>0,
     canRedo:historyIndex>=0 && historyIndex<history.length-1,
-    warnings:lastValidation.length
+    warnings:lastValidation.length,
+    mapMode,
+    file:mapMode==='onevone'?'onevone-map.js':'scene-data.js'
   });
 }
 
@@ -539,7 +705,7 @@ function updateEditAvailability(){
   const editable=canEdit && !data?.editorLocked;
 
   const ids=[
-    'addBoxBtn','addTreeBtn','addCarSpawnBtn','addLootSpawnBtn','sceneMoveMode','sceneRotateMode','sceneScaleMode',
+    'addBoxBtn','addTreeBtn','addCarSpawnBtn','addLootSpawnBtn','addSpawnABtn','addSpawnBBtn','sceneMapHalf','sceneGroundColor','sceneMoveMode','sceneRotateMode','sceneScaleMode',
     'sceneDuplicateBtn','sceneDeleteBtn','propName',
     'propPosX','propPosY','propPosZ','propRotX','propRotY','propRotZ',
     'propScaleX','propScaleY','propScaleZ','propSizeX','propSizeY','propSizeZ',
@@ -549,8 +715,9 @@ function updateEditAvailability(){
   ids.forEach(id=>{
     const el=$(id);
     if(!el) return;
-    if(['addBoxBtn','addTreeBtn','addCarSpawnBtn','addLootSpawnBtn','resetSceneBtn'].includes(id)) el.disabled=!canEdit;
-    else el.disabled=!editable;
+    if(['addBoxBtn','addTreeBtn','addCarSpawnBtn','addLootSpawnBtn','addSpawnABtn','addSpawnBBtn','sceneMapHalf','sceneGroundColor','resetSceneBtn'].includes(id)){
+      el.disabled=!canEdit;
+    }else el.disabled=!editable;
   });
 
   if(transform){
@@ -589,6 +756,18 @@ function addObject(type){
       id,type:'tree',name:'New Tree',
       position:[round(target.x+4),0,round(target.z+4)],
       rotation:[0,0,0],scale:[1,1,1],color:'#2f633a'
+    };
+  }else if(type==='spawnA'){
+    template={
+      id,type:'spawnA',name:'HOST SPAWN',
+      position:[round(target.x),0,round(target.z+8)],
+      rotation:[0,Math.PI,0],scale:[1,1,1],color:'#62c8ff'
+    };
+  }else if(type==='spawnB'){
+    template={
+      id,type:'spawnB',name:'GUEST SPAWN',
+      position:[round(target.x),0,round(target.z-8)],
+      rotation:[0,0,0],scale:[1,1,1],color:'#ff7a72'
     };
   }else if(type==='carSpawn'){
     template={
@@ -709,10 +888,14 @@ function applyPropertyInputs(){
   data.name=String($('propName').value||data.name).slice(0,40);
   root.name=data.name;
 
+  const positionLimit=mapMode==='onevone'
+    ? clamp(sceneData?.mapHalf||70,30,220)+20
+    : 238;
+
   root.position.set(
-    clamp($('propPosX').value,-238,238),
+    clamp($('propPosX').value,-positionLimit,positionLimit),
     clamp($('propPosY').value,-20,100),
-    clamp($('propPosZ').value,-238,238)
+    clamp($('propPosZ').value,-positionLimit,positionLimit)
   );
   root.rotation.set(
     rad(clamp($('propRotX').value,-720,720)),
@@ -827,20 +1010,29 @@ function setSnap(){
 function validateScene(){
   const warnings=[];
   const ids=new Set();
+  const limit=mapMode==='onevone'
+    ? clamp(sceneData?.mapHalf||70,30,220)
+    : 238;
 
   for(const obj of sceneData?.objects||[]){
     if(ids.has(obj.id)) warnings.push('Duplicate object ID: '+obj.id);
     ids.add(obj.id);
 
-    if(Math.abs(obj.position[0])>238 || Math.abs(obj.position[2])>238){
-      warnings.push(obj.name+' is outside the map');
+    if(Math.abs(obj.position[0])>limit || Math.abs(obj.position[2])>limit){
+      warnings.push(obj.name+' is outside the active map');
     }
     if(obj.scale.some(value=>value<=0)){
       warnings.push(obj.name+' has invalid scale');
     }
   }
 
-  // Fast coarse overlap check for box centers. It catches obvious accidental duplicates.
+  if(mapMode==='onevone'){
+    const spawnA=(sceneData?.objects||[]).filter(obj=>obj.type==='spawnA');
+    const spawnB=(sceneData?.objects||[]).filter(obj=>obj.type==='spawnB');
+    if(spawnA.length!==1) warnings.push('1V1 needs exactly one HOST SPAWN (A)');
+    if(spawnB.length!==1) warnings.push('1V1 needs exactly one GUEST SPAWN (B)');
+  }
+
   const boxes=(sceneData?.objects||[]).filter(obj=>obj.type==='box');
   for(let i=0;i<boxes.length;i++){
     for(let j=i+1;j<boxes.length;j++){
@@ -892,6 +1084,11 @@ function bindPropertyEvents(){
   $('addTreeBtn')?.addEventListener('click',()=>addObject('tree'));
   $('addCarSpawnBtn')?.addEventListener('click',()=>addObject('carSpawn'));
   $('addLootSpawnBtn')?.addEventListener('click',()=>addObject('lootSpawn'));
+  $('addSpawnABtn')?.addEventListener('click',()=>addObject('spawnA'));
+  $('addSpawnBBtn')?.addEventListener('click',()=>addObject('spawnB'));
+  $('sceneMapSelect')?.addEventListener('change',event=>switchMapMode(event.target.value));
+  $('sceneMapHalf')?.addEventListener('change',applyMapSettings);
+  $('sceneGroundColor')?.addEventListener('change',applyMapSettings);
   $('sceneMoveMode')?.addEventListener('click',()=>setTransformMode('translate'));
   $('sceneRotateMode')?.addEventListener('click',()=>setTransformMode('rotate'));
   $('sceneScaleMode')?.addEventListener('click',()=>setTransformMode('scale'));
@@ -918,15 +1115,18 @@ function bindPropertyEvents(){
 
   $('resetSceneBtn')?.addEventListener('click',()=>{
     if(!canEdit) return;
-    if(!confirm('Reset Scene Draft to the original S1 map?')) return;
-    localStorage.removeItem(SCENE_DRAFT_KEY);
+    const label=mapMode==='onevone'?'1V1 Arena':'S1 map';
+    if(!confirm('Reset '+label+' draft to its source defaults?')) return;
+    localStorage.removeItem(currentDraftKey());
     sceneData=cloneDefaults();
     sceneDirty=true;
     history=[];
     historyIndex=-1;
+    buildBaseWorld();
     pushHistory();
     rebuildScene();
-    logFn('Scene reset to original S1 map','ok');
+    renderSceneMapUi();
+    logFn('Scene reset → '+label,'ok');
   });
 }
 
@@ -977,7 +1177,25 @@ function jsValue(value,indent=0){
 
 export function getGeneratedSceneModule(){
   const objects=(sceneData?.objects||[]).map(cleanForExport);
+
+  if(mapMode==='onevone'){
+    const payload={
+      version:1,
+      name:sceneData?.name||'1V1 Arena',
+      mapHalf:clamp(sceneData?.mapHalf||70,30,220),
+      groundColor:/^#[0-9a-f]{6}$/i.test(sceneData?.groundColor||'')
+        ? sceneData.groundColor
+        : '#536b47',
+      objects
+    };
+    return 'export const ONEVONE_MAP = '+jsValue(payload)+';\n';
+  }
+
   return 'export const BASE_SCENE_OBJECTS = '+jsValue(objects)+';\n';
+}
+
+export function getSceneExportFileName(){
+  return mapMode==='onevone'?'onevone-map.js':'scene-data.js';
 }
 
 export function getSceneData(){
@@ -999,11 +1217,13 @@ export function initSceneEditor({role='tester',log=()=>{},onStateChange=()=>{}}=
   logFn=log;
   stateFn=onStateChange;
   sceneData=loadSceneData();
+  renderSceneMapUi();
 
   const host=$('sceneViewport');
   scene=new THREE.Scene();
   camera=new THREE.PerspectiveCamera(60,1,.1,1200);
-  camera.position.set(115,95,115);
+  const initialDistance=mapMode==='onevone'?95:115;
+  camera.position.set(initialDistance,mapMode==='onevone'?72:95,initialDistance);
 
   renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
   renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));
@@ -1076,16 +1296,11 @@ export function setSceneEditorActive(value){
 
 export function saveSceneDraft(){
   if(!sceneData || !canEdit) return false;
-  const payload={
-    version:1,
-    name:sceneData.name||'S1 Green Valley',
-    updatedAt:new Date().toISOString(),
-    objects:sceneData.objects.map(obj=>clone(obj))
-  };
-  localStorage.setItem(SCENE_DRAFT_KEY,JSON.stringify(payload));
+  const payload=sceneDraftPayload();
+  localStorage.setItem(currentDraftKey(),JSON.stringify(payload));
   sceneDirty=false;
   notifyState();
-  logFn('Scene draft saved · '+payload.objects.length+' objects','ok');
+  logFn('Scene draft saved · '+payload.objects.length+' objects · '+(mapMode==='onevone'?'1V1':'BR'),'ok');
   return true;
 }
 
@@ -1095,18 +1310,22 @@ export function reloadSceneDraft(){
   sceneDirty=false;
   history=[];
   historyIndex=-1;
+  buildBaseWorld();
   pushHistory();
   rebuildScene();
-  logFn('Scene reloaded','ok');
+  renderSceneMapUi();
+  logFn('Scene reloaded · '+(mapMode==='onevone'?'1V1 ARENA':'S1 GREEN VALLEY'),'ok');
 }
 
 export function getSceneStatus(){
   return {
     dirty:sceneDirty,
     count:sceneData?.objects.length||0,
-    saved:Boolean(localStorage.getItem(SCENE_DRAFT_KEY)),
+    saved:Boolean(localStorage.getItem(currentDraftKey())),
     canUndo:historyIndex>0,
     canRedo:historyIndex>=0 && historyIndex<history.length-1,
-    warnings:lastValidation.length
+    warnings:lastValidation.length,
+    mapMode,
+    file:mapMode==='onevone'?'onevone-map.js':'scene-data.js'
   };
 }
