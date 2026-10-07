@@ -9,8 +9,10 @@ import {
   getSceneStatus,
   getSceneData,
   getGeneratedSceneModule,
+  getSceneExportFileName,
   undoScene,
-  redoScene
+  redoScene,
+  ONEVONE_SCENE_DRAFT_KEY
 } from './scene-editor.js';
 import {
   initDataEditor,
@@ -42,6 +44,7 @@ const FILES={
   'game.js':'../game.js',
   'game-config.js':'../game-config.js',
   'scene-data.js':'../scene-data.js',
+  'onevone-map.js':'../onevone-map.js',
   'dev-tools.js':'../dev-tools.js',
   'style.css':'../style.css',
   'ui-layout.css':'../ui-layout.css',
@@ -93,11 +96,13 @@ function canEditGui(){return ['owner','developer','builder'].includes(access?.ro
 
 function updateStats(){
   if(workspaceMode==='scene'){
-    $('codeStats').textContent=sceneStatus.count+' objects · '+sceneStatus.warnings+' warnings · '+(sceneStatus.dirty?'draft':'saved');
-    $('fileState').textContent=sceneStatus.dirty?'DRAFT':'SCENE';
+    const mapLabel=sceneStatus.mapMode==='onevone'?'1V1':'BR';
+    $('codeStats').textContent=sceneStatus.count+' objects · '+sceneStatus.warnings+' warnings · '+mapLabel+' · '+(sceneStatus.dirty?'draft':'saved');
+    $('fileState').textContent=sceneStatus.dirty?'DRAFT':mapLabel;
+    $('activeFileLabel').textContent=sceneStatus.file||getSceneExportFileName();
     $('undoBtn').disabled=!sceneStatus.canUndo;
     $('redoBtn').disabled=!sceneStatus.canRedo;
-    setHealth(sceneStatus.warnings?sceneStatus.warnings+' SCENE WARNINGS':'SCENE OK',sceneStatus.warnings?'warn':'');
+    setHealth(sceneStatus.warnings?sceneStatus.warnings+' SCENE WARNINGS':mapLabel+' SCENE OK',sceneStatus.warnings?'warn':'');
     return;
   }
 
@@ -176,7 +181,7 @@ function setWorkspaceMode(mode){
   document.body.classList.toggle('gui-mode',guiMode);
 
   $('activeFileLabel').textContent=sceneMode
-    ? 'scene-data.js'
+    ? (sceneStatus.file||getSceneExportFileName())
     : dataMode
       ? 'game-config.js'
       : guiMode
@@ -226,7 +231,7 @@ async function syncQuickTools(){
 async function loadFile(file,{ignoreDraft=false}={}){
   activeFile=file;
   $('activeFileLabel').textContent=workspaceMode==='code'?file:
-    workspaceMode==='scene'?'scene-data.js':
+    workspaceMode==='scene'?(sceneStatus.file||getSceneExportFileName()):
     workspaceMode==='data'?'game-config.js':'ui-layout.css';
   document.querySelectorAll('.file-item').forEach(el=>el.classList.toggle('active',el.dataset.file===file));
 
@@ -321,7 +326,7 @@ function saveCurrent(){
 
 function copyCurrent(){
   if(workspaceMode==='scene'){
-    return copyText(getGeneratedSceneModule(),'scene-data.js');
+    return copyText(getGeneratedSceneModule(),getSceneExportFileName());
   }
   if(workspaceMode==='data'){
     return copyText(getGeneratedConfig(),'game-config.js');
@@ -359,6 +364,7 @@ function collectBackup(label='Manual snapshot'){
     label,
     codeDrafts:collectCodeDrafts(),
     sceneDraft:localStorage.getItem(SCENE_KEY),
+    oneVOneSceneDraft:localStorage.getItem(ONEVONE_SCENE_DRAFT_KEY),
     dataDraft:localStorage.getItem(DATA_DRAFT_KEY),
     guiDraft:localStorage.getItem(GUI_DRAFT_KEY)
   };
@@ -387,6 +393,9 @@ function restoreBackup(backup){
 
   if(typeof backup.sceneDraft==='string') localStorage.setItem(SCENE_KEY,backup.sceneDraft);
   else localStorage.removeItem(SCENE_KEY);
+
+  if(typeof backup.oneVOneSceneDraft==='string') localStorage.setItem(ONEVONE_SCENE_DRAFT_KEY,backup.oneVOneSceneDraft);
+  else localStorage.removeItem(ONEVONE_SCENE_DRAFT_KEY);
 
   if(typeof backup.dataDraft==='string') localStorage.setItem(DATA_DRAFT_KEY,backup.dataDraft);
   else localStorage.removeItem(DATA_DRAFT_KEY);
