@@ -5,7 +5,7 @@ import {
   getHitMultiplier,
   pulseCharacterAction,
   updateHumanoidAnimation
-} from './character-system.js';
+} from './character-system.js?v=20261007-player-rework1';
 
 const $ = (id) => document.getElementById(id);
 const UI = {
@@ -1709,6 +1709,7 @@ document.addEventListener('mini3d:net-damage',event=>{
   const amount=THREE.MathUtils.clamp(Number(event.detail.amount)||0,0,100);
   if (amount<=0) return;
 
+  pulseCharacterAction(player,'hit',1);
   hp=Math.max(0,hp-amount);
   updateHud();
 
@@ -2131,6 +2132,7 @@ function findBotTarget(bot) {
 function damageBotByBot(target,amount,killer) {
   if(!target.userData.alive) return;
 
+  pulseCharacterAction(target,'hit',1);
   target.userData.hp-=amount;
   if(target.userData.hp<=0){
     target.userData.alive=false;
