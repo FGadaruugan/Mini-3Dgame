@@ -67,7 +67,8 @@
     claimedSeason:[],
     claimedRecallDate:'',
     crateOpened:0,
-    credits:0
+    credits:0,
+    titlePoints:0
   });
 
   function clone(value){return JSON.parse(JSON.stringify(value));}
@@ -220,18 +221,25 @@
   }
 
   function renderSeason(){
+    const title=rankName();
+    const next=nextRankInfo();
+
     return '<section class="s2-hero-card">'+
-      '<div><small>SEASON 02</small><h2>FRONTLINE</h2><p>Season 2 focuses on the dedicated 1V1 Arena, lobby systems, Studio map editing and polish.</p></div>'+
-      '<div class="s2-season-badge"><span>S2</span><b>FRONTLINE</b></div>'+
+      '<div><small>SEASON 02 · CURRENT TITLE</small><h2>'+title+'</h2><p>Your Season 2 title is separate from Profile career statistics.</p>'+
+      '<div class="s2-title-progress">'+
+        '<div class="s2-progress"><i style="width:'+(next.value*100).toFixed(1)+'%"></i></div>'+
+        '<span>'+next.label+'</span>'+
+      '</div></div>'+
+      '<div class="s2-season-badge"><span>S2</span><b>'+title+'</b></div>'+
     '</section>'+
-    '<h3 class="s2-section-title">SEASON CONTENT</h3>'+
+    '<h3 class="s2-section-title">SEASON 2</h3>'+
     '<div class="s2-grid">'+
       '<article class="s2-tile selected"><small>NEW MODE</small><strong>1V1 ARENA</strong><p>10 minutes · first to 40 kills · LMG-5 · 3s respawn · 3s shield.</p>'+button('OPEN MODES','open-modes')+'</article>'+
       '<article class="s2-tile"><small>MAP</small><strong>DEDICATED ARENA</strong><p>1V1 uses its own map and no longer loads the Battle Royale world.</p></article>'+
       '<article class="s2-tile"><small>CREATOR</small><strong>STUDIO SCENE</strong><p>Authorized creators can build the 1V1 Arena separately from Green Valley.</p>'+button('CREATOR ACCESS','open-create')+'</article>'+
-      '<article class="s2-tile"><small>CUSTOMIZATION</small><strong>THEMES & CARDS</strong><p>Season 2 lobby themes, player cards and local cosmetics are managed from the bottom menu.</p>'+button('OPEN THEME','open-theme')+'</article>'+
-      '<article class="s2-tile"><small>WORKSHOP</small><strong>WEAPON SHOWCASE</strong><p>Inspect S2 weapon information and choose a showcase weapon for your lobby profile.</p>'+button('OPEN WORKSHOP','open-workshop')+'</article>'+
-      '<article class="s2-tile"><small>SOCIAL</small><strong>PROFILE / FRIENDS</strong><p>Player statistics belong to Profile. Friends and invitations use a separate Friends screen.</p>'+button('OPEN PROFILE','open-profile')+'</article>'+
+      '<article class="s2-tile"><small>CUSTOMIZATION</small><strong>THEMES & CARDS</strong><p>Season 2 lobby themes, player cards and local cosmetics.</p>'+button('OPEN THEME','open-theme')+'</article>'+
+      '<article class="s2-tile"><small>WORKSHOP</small><strong>WEAPON SHOWCASE</strong><p>Inspect S2 weapon information and select your showcase weapon.</p>'+button('OPEN WORKSHOP','open-workshop')+'</article>'+
+      '<article class="s2-tile"><small>CAREER</small><strong>PROFILE</strong><p>Matches, Wins, Kills, Solo Wins and 1V1 Wins are shown in Profile.</p>'+button('OPEN PROFILE','open-profile')+'</article>'+
     '</div>';
   }
 
@@ -277,13 +285,31 @@
     '</article>';
   }
 
-  function rankName(){
-    const score=playerStats.wins*12+playerStats.kills+playerStats.matches*2;
-    if(score>=250) return 'DIAMOND';
-    if(score>=140) return 'PLATINUM';
-    if(score>=70) return 'GOLD';
-    if(score>=25) return 'SILVER';
+  function rankName(points=state.titlePoints||0){
+    const p=Math.max(0,Number(points)||0);
+    if(p>=900) return 'DIAMOND';
+    if(p>=500) return 'PLATINUM';
+    if(p>=250) return 'GOLD';
+    if(p>=100) return 'SILVER';
     return 'BRONZE';
+  }
+
+  function nextRankInfo(points=state.titlePoints||0){
+    const p=Math.max(0,Number(points)||0);
+    const tiers=[
+      {name:'BRONZE',need:0},
+      {name:'SILVER',need:100},
+      {name:'GOLD',need:250},
+      {name:'PLATINUM',need:500},
+      {name:'DIAMOND',need:900}
+    ];
+    const currentIndex=Math.max(0,tiers.findLastIndex(t=>p>=t.need));
+    const current=tiers[currentIndex];
+    const next=tiers[currentIndex+1]||null;
+    if(!next) return {current,next:null,value:1,label:'MAX TITLE'};
+    const span=next.need-current.need;
+    const value=Math.max(0,Math.min(1,(p-current.need)/span));
+    return {current,next,value,label:(next.need-p)+' TP TO '+next.name};
   }
 
   function renderRank(){
@@ -372,7 +398,7 @@
       'Profile Matches: '+playerStats.matches,
       'Profile Wins: '+playerStats.wins,
       'Profile Kills: '+playerStats.kills,
-      'Profile Title: '+rankName(),
+      'S2 Title: '+rankName(),
       'Browser: '+navigator.userAgent
     ].join('\n');
   }
@@ -462,7 +488,11 @@
   }
 
   function open(page='season'){
-    if(page==='rank' || page==='profile'){
+    if(page==='rank'){
+      page='season';
+    }
+
+    if(page==='profile'){
       window.Mini3DProfile?.openProfile?.();
       return;
     }
@@ -694,6 +724,8 @@
 
     localStorage.setItem(PROFILE_STATS_KEY,JSON.stringify(playerStats));
 
+    const titleGain=10+Math.min(20,k)+(result==='win'?25:0);
+    state.titlePoints=Math.max(0,(Number(state.titlePoints)||0)+titleGain);
     state.credits+=10+Math.min(40,k);
     save();
 
