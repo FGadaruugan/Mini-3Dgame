@@ -48,9 +48,11 @@ const FILES={
   'onevone-map.js':'../onevone-map.js',
   'dev-tools.js':'../dev-tools.js',
   'style.css':'../style.css',
+  'ui-refresh.css':'../ui-refresh.css',
   'ui-layout.css':'../ui-layout.css',
   'profile.js':'../profile.js',
   'index.html':'../index.html',
+  'studio/ui-refresh.css':'./ui-refresh.css',
   'STUDIO_GUIDE.md':'../STUDIO_GUIDE.md'
 };
 
