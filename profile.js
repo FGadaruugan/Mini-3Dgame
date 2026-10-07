@@ -95,12 +95,68 @@ function closeFriends() {
   ui.friendsOverlay?.classList.add('hidden');
 }
 
+function getAccountState() {
+  return {
+    configured,
+    signedIn:Boolean(session),
+    displayName:profile?.display_name || (session?'Player':'Guest Player'),
+    playerId:profile?.player_id || null,
+    avatarUrl:profile?.avatar_url || null,
+    status:ui.backend?.textContent || (session?'ONLINE':'NOT SIGNED IN')
+  };
+}
+
+function dispatchAccountUpdated() {
+  document.dispatchEvent(new CustomEvent('mini3d:account-updated',{
+    detail:getAccountState()
+  }));
+}
+
+async function copyPlayerId() {
+  if(!profile?.player_id) return false;
+  try{
+    await navigator.clipboard?.writeText(profile.player_id);
+    setStatus('ID COPIED','ok');
+    return true;
+  }catch{
+    return false;
+  }
+}
+
+async function signInWithGoogle() {
+  if(!configured || !supabase) {
+    setStatus('GOOGLE LOGIN NOT CONFIGURED','error');
+    return false;
+  }
+
+  setStatus('OPENING GOOGLE SIGN-IN…');
+  const {error}=await supabase.auth.signInWithOAuth({
+    provider:'google',
+    options:{redirectTo:window.location.origin + window.location.pathname}
+  });
+
+  if(error){
+    setStatus('GOOGLE LOGIN NOT CONFIGURED','error');
+    return false;
+  }
+  return true;
+}
+
+async function signOutAccount() {
+  if(!supabase) return false;
+  await supabase.auth.signOut();
+  closeProfile();
+  closeFriends();
+  return true;
+}
+
 function setStatus(message, type='') {
   [ui.backend,ui.friendsBackend].forEach(el=>{
     if(!el) return;
     el.textContent=message;
     el.dataset.state=type;
   });
+  dispatchAccountUpdated();
 }
 
 function updateTopProfile() {
@@ -132,6 +188,7 @@ function renderProfile() {
     ui.signOut.classList.add('hidden');
     updateTopProfile();
     renderProfileStats();
+    dispatchAccountUpdated();
     return;
   }
 
@@ -148,6 +205,7 @@ function renderProfile() {
   ui.signOut.classList.remove('hidden');
   updateTopProfile();
   renderProfileStats();
+  dispatchAccountUpdated();
 }
 
 function renderFriends() {
@@ -605,13 +663,13 @@ window.Mini3DProfile={
   closeProfile,
   openFriends,
   closeFriends,
-  refreshStats:renderProfileStats
-};
-ui.copyId?.addEventListener('click',async()=>{
-  if (!profile?.player_id) return;
-  await navigator.clipboard?.writeText(profile.player_id);
-  setStatus('ID COPIED', 'ok');
-});
+  refreshStats:renderProfileStats,
+  getAccountState,
+  copyPlayerId,
+  signIn:signInWithGoogle,
+  signOut:signOutAccount
+}
+ui.copyId?.addEventListener('click',copyPlayerId);
 ui.addFriend?.addEventListener('click',addFriend);
 ui.friendId?.addEventListener('input',()=>{
   ui.friendId.value = ui.friendId.value.replace(/\D/g,'').slice(0,8);
@@ -629,22 +687,9 @@ if (!configured) {
 } else {
   supabase = createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
 
-  ui.signIn?.addEventListener('click',async()=>{
-    setStatus('OPENING GOOGLE SIGN-IN…');
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider:'google',
-      options:{ redirectTo:window.location.origin + window.location.pathname }
-    });
-    if (error) {
-      setStatus('GOOGLE LOGIN NOT CONFIGURED', 'error');
-    }
-  });
+  ui.signIn?.addEventListener('click',signInWithGoogle);
 
-  ui.signOut?.addEventListener('click',async()=>{
-    await supabase.auth.signOut();
-    closeProfile();
-    closeFriends();
-  });
+  ui.signOut?.addEventListener('click',signOutAccount);
 
   const { data:{ session:initialSession } } = await supabase.auth.getSession();
   await handleSession(initialSession);
