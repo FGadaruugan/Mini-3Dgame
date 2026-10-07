@@ -1282,6 +1282,13 @@ function finishOneVOneMatch(result,reason='MATCH COMPLETE',{broadcast=true}={}) 
     ' · '+formatOneVOneTime(multiplayerTimeRemaining);
 
   UI.endOverlay.classList.remove('hidden');
+
+  window.Mini3DS2?.recordMatch?.({
+    mode:'1v1',
+    result,
+    kills
+  });
+
   updateHud();
 }
 
@@ -2634,25 +2641,10 @@ function bindInputs() {
 
   document.querySelectorAll('.lobby-nav-item').forEach(item => {
     item.addEventListener('click', () => {
-      const tab=item.dataset.lobbyTab || '';
+      const tab=item.dataset.lobbyTab || 'season';
       document.querySelectorAll('.lobby-nav-item').forEach(x=>x.classList.remove('active'));
       item.classList.add('active');
-
-      const labels={
-        theme:'THEME',
-        season:'S32 / SEASON',
-        workshop:'WORKSHOP',
-        cards:'CARDS',
-        inventory:'INVENTORY'
-      };
-
-      const toast=document.getElementById('lobbyTabToast');
-      if (toast) {
-        toast.textContent=(labels[tab] || tab.toUpperCase()) + ' · COMING NEXT';
-        toast.classList.remove('hidden');
-        clearTimeout(toast._hideTimer);
-        toast._hideTimer=setTimeout(()=>toast.classList.add('hidden'),900);
-      }
+      window.Mini3DLobbyHub?.open?.(tab);
     });
   });
 
@@ -2674,19 +2666,21 @@ function bindInputs() {
 
   document.querySelectorAll('.drawer-item').forEach(item=>{
     item.addEventListener('click',()=>{
-      if (item.dataset.drawerItem==='settings') {
+      const page=item.dataset.drawerItem || '';
+
+      if(page==='settings'){
+        setDrawerOpen(false);
         openSettings('sensitivity');
         return;
       }
 
-      const name=item.querySelector('strong')?.textContent || 'MENU';
-      const toast=document.getElementById('lobbyTabToast');
-      if(toast){
-        toast.textContent=name + ' · COMING SOON';
-        toast.classList.remove('hidden');
-        clearTimeout(toast._hideTimer);
-        toast._hideTimer=setTimeout(()=>toast.classList.add('hidden'),900);
+      if(page==='studio'){
+        // studio-entry.js owns authorization and navigation for this button.
+        return;
       }
+
+      setDrawerOpen(false);
+      window.Mini3DLobbyHub?.open?.(page);
     });
   });
 
@@ -3264,6 +3258,12 @@ function endMatch(win) {
   UI.endTitle.textContent=win?'WINNER!':'ELIMINATED';
   UI.endText.textContent='Kills: ' + kills + ' · Survived: ' + Math.floor(elapsed) + 's';
   UI.endOverlay.classList.remove('hidden');
+
+  window.Mini3DS2?.recordMatch?.({
+    mode:'solo',
+    result:win?'win':'lose',
+    kills
+  });
 }
 
 function updateHud() {
