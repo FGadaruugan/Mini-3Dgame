@@ -1,5 +1,6 @@
 (() => {
   const STORAGE_KEY='mini3d-s2-hub-v1';
+  const PROFILE_STATS_KEY='mini3d-profile-stats-v1';
   const VERSION=2;
 
   const THEMES=[
@@ -66,32 +67,63 @@
     claimedSeason:[],
     claimedRecallDate:'',
     crateOpened:0,
-    credits:0,
-    stats:{matches:0,wins:0,kills:0,soloWins:0,duelWins:0}
+    credits:0
   });
 
   function clone(value){return JSON.parse(JSON.stringify(value));}
+
+  function emptyProfileStats(){
+    return {matches:0,wins:0,kills:0,soloWins:0,duelWins:0};
+  }
+
+  function normalizeProfileStats(raw){
+    const base=emptyProfileStats();
+    return {
+      matches:Math.max(0,Math.floor(Number(raw?.matches)||base.matches)),
+      wins:Math.max(0,Math.floor(Number(raw?.wins)||base.wins)),
+      kills:Math.max(0,Math.floor(Number(raw?.kills)||base.kills)),
+      soloWins:Math.max(0,Math.floor(Number(raw?.soloWins)||base.soloWins)),
+      duelWins:Math.max(0,Math.floor(Number(raw?.duelWins)||base.duelWins))
+    };
+  }
+
+  function loadProfileStats(migrateFrom=null){
+    try{
+      const stored=JSON.parse(localStorage.getItem(PROFILE_STATS_KEY)||'null');
+      if(stored) return normalizeProfileStats(stored);
+    }catch{}
+
+    const migrated=normalizeProfileStats(migrateFrom);
+    localStorage.setItem(PROFILE_STATS_KEY,JSON.stringify(migrated));
+    return migrated;
+  }
 
   function load(){
     const base=defaults();
     try{
       const raw=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');
-      if(!raw) return base;
+      if(!raw) return {state:base,legacyStats:null};
+
+      const {stats:legacyStats,...seasonRaw}=raw;
       return {
-        ...base,
-        ...raw,
-        stats:{...base.stats,...(raw.stats||{})},
-        claimedMail:Array.isArray(raw.claimedMail)?raw.claimedMail:[],
-        claimedMissions:Array.isArray(raw.claimedMissions)?raw.claimedMissions:[],
-        claimedSeason:Array.isArray(raw.claimedSeason)?raw.claimedSeason:[],
-        ownedItems:Array.isArray(raw.ownedItems)?raw.ownedItems:['field']
+        state:{
+          ...base,
+          ...seasonRaw,
+          claimedMail:Array.isArray(raw.claimedMail)?raw.claimedMail:[],
+          claimedMissions:Array.isArray(raw.claimedMissions)?raw.claimedMissions:[],
+          claimedSeason:Array.isArray(raw.claimedSeason)?raw.claimedSeason:[],
+          ownedItems:Array.isArray(raw.ownedItems)?raw.ownedItems:['field']
+        },
+        legacyStats
       };
     }catch{
-      return base;
+      return {state:base,legacyStats:null};
     }
   }
 
-  let state=load();
+  const loaded=load();
+  let state=loaded.state;
+  let playerStats=loadProfileStats(loaded.legacyStats);
   let activePage='season';
 
   const $=id=>document.getElementById(id);
@@ -246,7 +278,7 @@
   }
 
   function rankName(){
-    const score=state.stats.wins*12+state.stats.kills+state.stats.matches*2;
+    const score=playerStats.wins*12+playerStats.kills+playerStats.matches*2;
     if(score>=250) return 'DIAMOND';
     if(score>=140) return 'PLATINUM';
     if(score>=70) return 'GOLD';
@@ -255,7 +287,7 @@
   }
 
   function renderRank(){
-    const s=state.stats;
+    const s=playerStats;
     return '<section class="s2-rank-card"><small>LOCAL S2 RANK</small><h2>'+rankName()+'</h2>'+
       '<div class="s2-stat-strip"><span><b>'+s.matches+'</b>MATCHES</span><span><b>'+s.wins+'</b>WINS</span><span><b>'+s.kills+'</b>KILLS</span></div>'+
       '<p>This rank uses match history stored on this device. Global leaderboard needs a server leaderboard API.</p></section>';
@@ -337,9 +369,9 @@
       'Mini 3D Battle · Season 2',
       'Theme: '+state.theme,
       'Region: '+state.region,
-      'Profile Matches: '+state.stats.matches,
-      'Profile Wins: '+state.stats.wins,
-      'Profile Kills: '+state.stats.kills,
+      'Profile Matches: '+playerStats.matches,
+      'Profile Wins: '+playerStats.wins,
+      'Profile Kills: '+playerStats.kills,
       'Profile Title: '+rankName(),
       'Browser: '+navigator.userAgent
     ].join('\n');
@@ -651,19 +683,22 @@
 
   function recordMatch({mode='solo',result='lose',kills=0}={}){
     const k=Math.max(0,Math.floor(Number(kills)||0));
-    state.stats.matches++;
-    state.stats.kills+=k;
+    playerStats.matches++;
+    playerStats.kills+=k;
 
     if(result==='win'){
-      state.stats.wins++;
-      if(mode==='1v1') state.stats.duelWins++;
-      else state.stats.soloWins++;
+      playerStats.wins++;
+      if(mode==='1v1') playerStats.duelWins++;
+      else playerStats.soloWins++;
     }
+
+    localStorage.setItem(PROFILE_STATS_KEY,JSON.stringify(playerStats));
 
     state.credits+=10+Math.min(40,k);
     save();
+
     document.dispatchEvent(new CustomEvent('mini3d:profile-stats-updated',{
-      detail:{...state.stats}
+      detail:{...playerStats}
     }));
   }
 
@@ -695,6 +730,7 @@
 
   window.Mini3DLobbyHub={open,close,renderPage,getState:()=>clone(state)};
   window.Mini3DS2={recordMatch,getState:()=>clone(state)};
+  window.Mini3DProfileStats={getState:()=>clone(playerStats)};
 
   bind();
 })();
