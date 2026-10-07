@@ -1074,6 +1074,7 @@ function init() {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   $('game').appendChild(renderer.domElement);
+  applyGraphicsSettings();
 
   clock = new THREE.Clock();
   buildWorld();
@@ -1129,6 +1130,7 @@ function clearOneVOneWorld({restoreBattleRoyale=true}={}) {
     setBattleRoyaleWorldVisible(true);
     scene.background=new THREE.Color(0x8fb6d8);
     scene.fog=new THREE.Fog(0x8fb6d8,110,520);
+    applyGraphicsSettings();
   }
 }
 
@@ -1312,6 +1314,8 @@ async function activateOneVOneMap() {
     host:spawns.host||{position:[0,0,Math.min(52,activeMapHalf-12)],yaw:Math.PI},
     guest:spawns.guest||{position:[0,0,-Math.min(52,activeMapHalf-12)],yaw:0}
   };
+
+  applyGraphicsSettings();
 }
 
 function setupOneVOneLoadout() {
@@ -3149,18 +3153,23 @@ function damagePlayer(amount) {
 }
 
 function spawnTracer(a,b,color) {
+  const quality=userSettings.graphics?.effects || 'medium';
+  if(quality==='low' && Math.random()<.45) return;
+
+  const life=quality==='high'?.12:quality==='low'?.045:.08;
+  const opacity=quality==='high'?1:quality==='low'?.62:.9;
   const geo=new THREE.BufferGeometry().setFromPoints([a,b]);
-  const mat=new THREE.LineBasicMaterial({color,transparent:true,opacity:.9});
+  const mat=new THREE.LineBasicMaterial({color,transparent:true,opacity});
   const mesh=new THREE.Line(geo,mat);
   scene.add(mesh);
-  tracers.push({mesh,life:.08});
+  tracers.push({mesh,life,maxLife:life});
 }
 
 function updateTracers(dt) {
   for(let i=tracers.length-1;i>=0;i--){
     const t=tracers[i];
     t.life-=dt;
-    t.mesh.material.opacity=Math.max(0,t.life/.08);
+    t.mesh.material.opacity=Math.max(0,t.life/(t.maxLife||.08));
     if(t.life<=0){
       scene.remove(t.mesh);
       tracers.splice(i,1);
@@ -3536,6 +3545,7 @@ function drawMinimap() {
 function onResize() {
   camera.aspect=innerWidth/innerHeight;
   camera.updateProjectionMatrix();
+  renderer.setPixelRatio(graphicsPixelRatio());
   renderer.setSize(innerWidth,innerHeight);
 }
 
@@ -3555,7 +3565,16 @@ addEventListener('unhandledrejection', event => {
 
 function animate() {
   requestAnimationFrame(animate);
-  const dt=Math.min(clock.getDelta(),.033);
+
+  const now=performance.now();
+  const fpsLimit=Number(userSettings.graphics?.fpsLimit)||0;
+  if(fpsLimit>0){
+    const minFrameMs=1000/fpsLimit;
+    if(lastRenderFrameAt && now-lastRenderFrameAt<minFrameMs-.35) return;
+  }
+  lastRenderFrameAt=now;
+
+  const dt=Math.min(clock.getDelta(),.05);
 
   if(started && !paused && !ended){
     elapsed+=dt;
