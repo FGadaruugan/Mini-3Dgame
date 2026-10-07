@@ -3411,7 +3411,8 @@ function updateBots(dt) {
     flat.y=0;
 
     if(flat.lengthSq()>.001) flat.normalize();
-    bot.rotation.y=Math.atan2(flat.x,flat.z);
+    // Humanoid characters face local -Z, so add PI to face the target.
+    bot.rotation.y=wrapAngle(Math.atan2(flat.x,flat.z)+Math.PI);
 
     const strafe=new THREE.Vector3(flat.z,0,-flat.x).multiplyScalar(bot.userData.strafe);
     const move=new THREE.Vector3();
