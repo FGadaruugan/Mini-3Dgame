@@ -4185,3 +4185,252 @@ body[data-s2-item="crimson"] .mobile-profile {
     font-size:12px;
   }
 }
+
+
+/* ===== Profile / Friends split ===== */
+.profile-only-body {
+  grid-template-columns:260px minmax(0,1fr);
+}
+
+.profile-stats-panel {
+  min-width:0;
+  min-height:0;
+  overflow:auto;
+  padding:18px;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+
+.profile-rank-card {
+  min-height:110px;
+  padding:16px;
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:14px;
+  border:1px solid rgba(241,200,75,.22);
+  border-radius:10px;
+  background:
+    radial-gradient(circle at 12% 20%,rgba(241,200,75,.13),transparent 34%),
+    linear-gradient(120deg,rgba(43,49,55,.86),rgba(10,14,18,.88));
+}
+
+.profile-rank-card small,
+.profile-rank-card strong {
+  display:block;
+}
+
+.profile-rank-card small {
+  color:#8d9aa7;
+  font-size:8px;
+  font-weight:900;
+  letter-spacing:.12em;
+}
+
+.profile-rank-card strong {
+  margin-top:4px;
+  color:#f1c84b;
+  font-size:34px;
+  letter-spacing:.04em;
+}
+
+.profile-rank-card > span {
+  padding:6px 8px;
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:6px;
+  color:#8d9aa7;
+  background:rgba(0,0,0,.18);
+  font-size:7px;
+  font-weight:900;
+  letter-spacing:.08em;
+}
+
+.profile-stat-grid {
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+}
+
+.profile-stat-grid article {
+  min-height:84px;
+  padding:12px;
+  display:flex;
+  flex-direction:column;
+  justify-content:flex-end;
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:9px;
+  background:rgba(255,255,255,.028);
+}
+
+.profile-stat-grid small {
+  color:#74879a;
+  font-size:7px;
+  font-weight:900;
+  letter-spacing:.10em;
+}
+
+.profile-stat-grid strong {
+  margin-top:4px;
+  color:#fff;
+  font-size:26px;
+}
+
+.profile-link-card {
+  padding:14px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:9px;
+  background:rgba(255,255,255,.025);
+}
+
+.profile-link-card small,
+.profile-link-card strong {
+  display:block;
+}
+
+.profile-link-card small {
+  color:#74879a;
+  font-size:7px;
+  font-weight:900;
+  letter-spacing:.10em;
+}
+
+.profile-link-card strong {
+  margin-top:3px;
+  font-size:14px;
+}
+
+.profile-link-card p {
+  margin:4px 0 0;
+  color:#8393a1;
+  font-size:9px;
+}
+
+.profile-link-card button,
+.friends-profile-link {
+  min-height:34px;
+  padding:7px 11px;
+  border:1px solid rgba(241,200,75,.24);
+  border-radius:7px;
+  color:#15120a;
+  background:linear-gradient(180deg,#f6d65f,#eab92c);
+  font-size:8px;
+  font-weight:1000;
+}
+
+.friends-shell {
+  background:
+    radial-gradient(circle at 75% 16%,rgba(86,145,196,.07),transparent 30%),
+    linear-gradient(145deg,rgba(30,35,40,.985),rgba(12,15,18,.994));
+}
+
+.friends-header-actions {
+  display:flex !important;
+  align-items:center !important;
+  gap:7px !important;
+}
+
+.friends-profile-link {
+  min-height:30px;
+  padding:5px 9px;
+}
+
+.friends-body {
+  flex:1;
+  min-height:0;
+  overflow:auto;
+  padding:16px 18px;
+}
+
+.friends-backend-state {
+  margin-bottom:10px;
+}
+
+.s2-season-badge {
+  min-width:150px;
+  min-height:88px;
+  display:grid;
+  place-items:center;
+  align-content:center;
+  gap:2px;
+  border:1px solid rgba(241,200,75,.20);
+  border-radius:10px;
+  color:#f1c84b;
+  background:rgba(241,200,75,.055);
+}
+
+.s2-season-badge span {
+  font-size:32px;
+  font-weight:1000;
+  line-height:1;
+}
+
+.s2-season-badge b {
+  color:#9b8c55;
+  font-size:8px;
+  letter-spacing:.12em;
+}
+
+@media (pointer:coarse) and (orientation:landscape) {
+  .profile-only-body {
+    grid-template-columns:190px minmax(0,1fr);
+  }
+
+  .profile-stats-panel {
+    padding:8px 10px;
+    gap:7px;
+  }
+
+  .profile-rank-card {
+    min-height:62px;
+    padding:8px 10px;
+  }
+
+  .profile-rank-card small { font-size:5px; }
+  .profile-rank-card strong { font-size:19px; }
+  .profile-rank-card > span { padding:4px 5px; font-size:5px; }
+
+  .profile-stat-grid {
+    gap:5px;
+  }
+
+  .profile-stat-grid article {
+    min-height:48px;
+    padding:6px 7px;
+  }
+
+  .profile-stat-grid small { font-size:5px; }
+  .profile-stat-grid strong { font-size:14px; }
+
+  .profile-link-card {
+    padding:7px 8px;
+    gap:8px;
+  }
+
+  .profile-link-card small { font-size:5px; }
+  .profile-link-card strong { font-size:8px; }
+  .profile-link-card p { font-size:5px; }
+
+  .profile-link-card button,
+  .friends-profile-link {
+    min-height:24px;
+    padding:4px 6px;
+    font-size:5px;
+  }
+
+  .friends-body {
+    padding:7px 9px;
+  }
+
+  .s2-season-badge {
+    min-width:90px;
+    min-height:52px;
+  }
+
+  .s2-season-badge span { font-size:18px; }
+  .s2-season-badge b { font-size:5px; }
+}
