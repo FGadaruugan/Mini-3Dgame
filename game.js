@@ -142,6 +142,13 @@ const DEFAULT_USER_SETTINGS = {
     move:   { x: 4,  y: 66, scale: 100, opacity: 60 },
     fire:   { x: 86, y: 72, scale: 100, opacity: 82 },
     reload: { x: 78, y: 56, scale: 100, opacity: 76 }
+  },
+  graphics: {
+    preset: 'medium',
+    shadows: true,
+    renderDistance: 480,
+    effects: 'medium',
+    fpsLimit: 60
   }
 };
 
@@ -160,6 +167,10 @@ function loadUserSettings() {
         move: { ...fallback.controls.move, ...(saved.controls?.move || {}) },
         fire: { ...fallback.controls.fire, ...(saved.controls?.fire || {}) },
         reload: { ...fallback.controls.reload, ...(saved.controls?.reload || {}) }
+      },
+      graphics: {
+        ...fallback.graphics,
+        ...(saved.graphics || {})
       }
     };
   } catch {
@@ -172,6 +183,114 @@ let selectedControl = 'fire';
 
 function saveUserSettings() {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(userSettings));
+}
+
+const GRAPHICS_PRESETS = {
+  low: { shadows:false, renderDistance:320, effects:'low', fpsLimit:60 },
+  medium: { shadows:true, renderDistance:480, effects:'medium', fpsLimit:60 },
+  high: { shadows:true, renderDistance:720, effects:'high', fpsLimit:120 }
+};
+
+let lastRenderFrameAt=0;
+
+function graphicsPixelRatio() {
+  const preset=userSettings.graphics?.preset || 'medium';
+  if(preset==='low') return Math.min(devicePixelRatio,1);
+  if(preset==='high') return Math.min(devicePixelRatio,2);
+  return Math.min(devicePixelRatio,1.5);
+}
+
+function applyGraphicsSettings() {
+  if(!userSettings.graphics) userSettings.graphics={...cloneDefaults().graphics};
+  const graphics=userSettings.graphics;
+
+  graphics.renderDistance=THREE.MathUtils.clamp(Number(graphics.renderDistance)||480,240,800);
+  graphics.fpsLimit=[0,30,60,120].includes(Number(graphics.fpsLimit))
+    ? Number(graphics.fpsLimit)
+    : 60;
+  graphics.effects=['low','medium','high'].includes(graphics.effects)
+    ? graphics.effects
+    : 'medium';
+  graphics.shadows=Boolean(graphics.shadows);
+
+  if(renderer){
+    renderer.setPixelRatio(graphicsPixelRatio());
+    renderer.setSize(innerWidth,innerHeight,false);
+    renderer.shadowMap.enabled=graphics.shadows;
+  }
+
+  if(camera){
+    camera.far=graphics.renderDistance;
+    camera.updateProjectionMatrix();
+  }
+
+  if(scene?.fog){
+    scene.fog.near=oneVOneWorld
+      ? Math.min(85,graphics.renderDistance*.34)
+      : Math.min(110,graphics.renderDistance*.30);
+    scene.fog.far=graphics.renderDistance;
+  }
+
+  document.body.dataset.graphicsPreset=graphics.preset || 'custom';
+  document.body.dataset.graphicsEffects=graphics.effects;
+  lastRenderFrameAt=0;
+}
+
+function setGraphicsPreset(name) {
+  const preset=GRAPHICS_PRESETS[name];
+  if(!preset) return;
+  userSettings.graphics={...userSettings.graphics,...preset,preset:name};
+  saveUserSettings();
+  applyGraphicsSettings();
+  syncSettingsUi();
+}
+
+function markGraphicsCustom() {
+  if(!userSettings.graphics) userSettings.graphics={...cloneDefaults().graphics};
+  userSettings.graphics.preset='custom';
+}
+
+function syncAccountSettingsUi() {
+  const account=window.Mini3DProfile?.getAccountState?.() || {
+    signedIn:false,
+    configured:true,
+    displayName:'Guest Player',
+    playerId:null,
+    avatarUrl:null,
+    status:'NOT SIGNED IN'
+  };
+
+  const name=document.getElementById('settingsAccountName');
+  const id=document.getElementById('settingsAccountId');
+  const status=document.getElementById('settingsAccountStatus');
+  const avatar=document.getElementById('settingsAccountAvatar');
+  const auth=document.getElementById('settingsAccountAuth');
+  const copy=document.getElementById('settingsCopyPlayerId');
+
+  if(name) name.textContent=account.displayName || 'Guest Player';
+  if(id) id.textContent='PLAYER ID · '+(account.playerId || '--------');
+  if(status){
+    status.textContent=account.status || (account.signedIn?'ONLINE':'NOT SIGNED IN');
+    status.dataset.state=account.signedIn?'ok':'';
+  }
+  if(auth){
+    auth.textContent=account.signedIn?'SIGN OUT':'SIGN IN WITH GOOGLE';
+    auth.dataset.mode=account.signedIn?'signout':'signin';
+    auth.disabled=account.configured===false;
+  }
+  if(copy) copy.disabled=!account.playerId;
+
+  if(avatar){
+    if(account.avatarUrl){
+      avatar.style.backgroundImage='url("'+String(account.avatarUrl).replaceAll('"','%22')+'")';
+      avatar.style.backgroundSize='cover';
+      avatar.style.backgroundPosition='center';
+      avatar.textContent='';
+    }else{
+      avatar.style.backgroundImage='';
+      avatar.textContent='P1';
+    }
+  }
 }
 
 function getSensitivityFactor() {
