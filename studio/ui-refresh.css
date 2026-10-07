@@ -1,0 +1,249 @@
+/* Mini 3D Studio — Season 2 visual polish only. */
+:root {
+  --studio-bg:#070b10;
+  --studio-bg2:#0a1016;
+  --studio-surface:#0e151d;
+  --studio-surface2:#111a23;
+  --studio-border:rgba(255,255,255,.09);
+  --studio-border-strong:rgba(255,255,255,.16);
+  --studio-text:#eef4f8;
+  --studio-muted:#7f92a4;
+  --studio-accent:#f1c84b;
+  --studio-accent-soft:rgba(241,200,75,.11);
+  --studio-good:#69dc91;
+  --studio-danger:#ff6f72;
+  --studio-radius:8px;
+}
+
+html,
+body,
+.studio-shell {
+  background:var(--studio-bg) !important;
+  color:var(--studio-text);
+}
+
+button,
+input,
+select,
+textarea {
+  font-family:inherit;
+}
+
+button {
+  transition:background .14s ease,border-color .14s ease,color .14s ease,transform .10s ease;
+}
+
+button:not(:disabled):active {
+  transform:scale(.98);
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline:2px solid var(--studio-accent);
+  outline-offset:1px;
+}
+
+.topbar,
+.toolbar,
+.statusbar,
+.explorer,
+.inspector,
+.console,
+.panel,
+.editor-pane,
+.scene-pane,
+.data-pane,
+.gui-pane {
+  border-color:var(--studio-border) !important;
+}
+
+.topbar {
+  background:linear-gradient(180deg,#121922,#0b1118) !important;
+  box-shadow:0 10px 28px rgba(0,0,0,.18);
+}
+
+.brand,
+.studio-mark,
+.panel-title,
+.tree-title,
+.property-title {
+  color:var(--studio-text);
+}
+
+.studio-mark {
+  color:#17140b !important;
+  background:linear-gradient(145deg,var(--studio-accent),#dba62a) !important;
+  box-shadow:0 6px 18px rgba(0,0,0,.22);
+}
+
+.toolbar,
+.statusbar {
+  background:#0a1016 !important;
+}
+
+.workspace,
+.editor,
+.scene-viewport,
+.gui-canvas-wrap {
+  background:var(--studio-bg) !important;
+}
+
+.explorer,
+.inspector,
+.console {
+  background:linear-gradient(180deg,#0d141c,#090e14) !important;
+}
+
+.file-item,
+.editor-tab,
+.role-chip,
+.gui-selector-chip,
+.scene-add-row button,
+.scene-snap-tools button,
+.scene-tools button,
+.gui-device-switch button,
+.gui-editor-toolbar button,
+.secondary-action,
+.ghost-link {
+  border-color:var(--studio-border) !important;
+  border-radius:6px !important;
+  color:#aab8c4 !important;
+  background:rgba(255,255,255,.025) !important;
+}
+
+.file-item:hover,
+.editor-tab:hover,
+.gui-selector-chip:hover,
+.scene-add-row button:hover,
+.scene-snap-tools button:hover,
+.scene-tools button:hover,
+.gui-device-switch button:hover,
+.gui-editor-toolbar button:hover,
+.secondary-action:hover,
+.ghost-link:hover {
+  border-color:rgba(241,200,75,.28) !important;
+  color:#fff !important;
+  background:var(--studio-accent-soft) !important;
+}
+
+.file-item.active,
+.editor-tab.active,
+.gui-selector-chip.active,
+.gui-device-switch button.active {
+  border-color:rgba(241,200,75,.36) !important;
+  color:#fff !important;
+  background:linear-gradient(90deg,var(--studio-accent-soft),rgba(255,255,255,.025)) !important;
+  box-shadow:inset 2px 0 0 var(--studio-accent);
+}
+
+.primary,
+.accent-action {
+  border-color:rgba(241,200,75,.36) !important;
+  color:#17140b !important;
+  background:linear-gradient(180deg,var(--studio-accent),#dba62a) !important;
+}
+
+.danger {
+  border-color:rgba(255,111,114,.25) !important;
+  color:#ffd2d3 !important;
+  background:rgba(110,29,33,.28) !important;
+}
+
+input,
+select,
+textarea {
+  border-color:var(--studio-border) !important;
+  border-radius:6px !important;
+  color:var(--studio-text) !important;
+  background:#090f15 !important;
+}
+
+input::placeholder,
+textarea::placeholder,
+.small,
+.inspector-note,
+.data-explorer-note,
+.viewport-help,
+.gui-player-note,
+.gui-preset-info,
+.modal-note {
+  color:var(--studio-muted) !important;
+}
+
+.scene-map-picker,
+.scene-map-settings,
+.scene-draft-box,
+.workflow-card,
+.shortcut-card,
+.owner-panel,
+.system-row,
+.gui-enabled-row,
+.color-row {
+  border-color:var(--studio-border) !important;
+  border-radius:var(--studio-radius) !important;
+  background:rgba(255,255,255,.025) !important;
+}
+
+.scene-map-picker,
+.scene-map-settings {
+  background:linear-gradient(180deg,rgba(241,200,75,.045),rgba(255,255,255,.018)) !important;
+}
+
+.scene-object-list,
+.gui-element-list,
+.gui-group-list,
+.member-list,
+.versions-list {
+  scrollbar-width:thin;
+  scrollbar-color:var(--studio-accent) transparent;
+}
+
+.scene-viewport,
+.gui-canvas {
+  border-color:var(--studio-border) !important;
+  box-shadow:inset 0 0 40px rgba(0,0,0,.24);
+}
+
+.studio-modal {
+  background:rgba(2,5,9,.76) !important;
+  backdrop-filter:blur(10px);
+}
+
+.studio-modal-card,
+.gate-card {
+  border-color:var(--studio-border) !important;
+  border-radius:12px !important;
+  background:
+    radial-gradient(circle at 10% 0%,var(--studio-accent-soft),transparent 32%),
+    linear-gradient(180deg,#111820,#090e14) !important;
+  box-shadow:0 24px 68px rgba(0,0,0,.46) !important;
+}
+
+.studio-modal-head {
+  border-bottom-color:var(--studio-border) !important;
+}
+
+.console {
+  color:#aebbc6 !important;
+}
+
+.console .ok,
+.statusbar .ok {
+  color:var(--studio-good) !important;
+}
+
+.console .error,
+.statusbar .error {
+  color:var(--studio-danger) !important;
+}
+
+@media (prefers-reduced-motion:reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration:.001ms !important;
+    animation-duration:.001ms !important;
+  }
+}
