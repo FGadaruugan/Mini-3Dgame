@@ -2337,8 +2337,14 @@ async function startMatch() {
   document.getElementById('drawerBackdrop')?.classList.remove('open');
   document.getElementById('drawerToggle')?.classList.remove('open');
 
-  if (selectedMode !== 'solo') {
-    UI.lobbyHint.textContent='This multiplayer mode is coming soon.';
+  if(selectedMode==='1v1'){
+    UI.lobbyHint.textContent='Choose an online friend and press INVITE.';
+    document.querySelector('[data-shortcut="friends"]')?.click();
+    return;
+  }
+
+  if(selectedMode!=='solo'){
+    UI.lobbyHint.textContent='This mode needs the next multiplayer backend expansion.';
     return;
   }
 
@@ -2625,17 +2631,39 @@ function bindInputs() {
     card.addEventListener('click', () => {
       const mode=card.dataset.mode;
       if(card.classList.contains('locked')){
-        UI.lobbyHint.textContent=mode==='friend'
-          ? 'FRIEND mode: multiplayer will be added next.'
-          : '1V1 mode: multiplayer will be added next.';
+        UI.lobbyHint.textContent='FRIEND / TEAM mode needs the next multiplayer backend expansion.';
         return;
       }
 
       selectedMode=mode;
       document.querySelectorAll('.mode-card').forEach(item=>item.classList.remove('active'));
       card.classList.add('active');
-      UI.lobbyPlayers.textContent='1 + 29 BOTS';
-      UI.lobbyHint.textContent='SOLO mode is ready.';
+
+      const desktopLabel=UI.startBtn?.querySelector('span:last-child');
+      const mobileLabel=UI.mobileStartBtn?.querySelector('span:first-child');
+      const mobileMode=document.querySelector('.match-mode-card');
+
+      if(mode==='1v1'){
+        UI.lobbyPlayers.textContent='2 PLAYERS';
+        UI.lobbyHint.textContent='1V1 ready · invite an online friend to enter the Arena.';
+        if(desktopLabel) desktopLabel.textContent='OPEN FRIENDS';
+        if(mobileLabel) mobileLabel.textContent='FRIENDS';
+        if(mobileMode){
+          mobileMode.querySelector('.mode-thumb').textContent='1V1';
+          mobileMode.querySelector('strong').textContent='1V1 · Arena';
+          mobileMode.querySelector('small').textContent='INVITE AN ONLINE FRIEND';
+        }
+      }else{
+        UI.lobbyPlayers.textContent='1 + 29 BOTS';
+        UI.lobbyHint.textContent='SOLO mode is ready.';
+        if(desktopLabel) desktopLabel.textContent='PLAY SOLO';
+        if(mobileLabel) mobileLabel.textContent='START';
+        if(mobileMode){
+          mobileMode.querySelector('.mode-thumb').textContent='GV';
+          mobileMode.querySelector('strong').textContent='Classic · Solo';
+          mobileMode.querySelector('small').textContent='GREEN VALLEY · 1 + 29 BOTS';
+        }
+      }
     });
   });
 
