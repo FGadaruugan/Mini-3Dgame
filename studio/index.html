@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
   <meta name="theme-color" content="#0b1017" />
   <title>Mini 3D Studio</title>
-  <link rel="stylesheet" href="./studio.css?v=20261007-1v1scene1" />
+  <link rel="stylesheet" href="./studio.css?v=20261007-1v1scene2" />
   <script type="importmap">
     {
       "imports": {
@@ -66,6 +66,7 @@
           <button class="file-item active" data-file="game.js">JS <span>game.js</span></button>
           <button class="file-item" data-file="game-config.js">JS <span>game-config.js</span></button>
           <button class="file-item" data-file="scene-data.js">JS <span>scene-data.js</span></button>
+          <button class="file-item" data-file="onevone-map.js">JS <span>onevone-map.js</span></button>
           <button class="file-item" data-file="dev-tools.js">JS <span>dev-tools.js</span></button>
           <button class="file-item" data-file="style.css">CSS <span>style.css</span></button>
           <button class="file-item" data-file="ui-layout.css">CSS <span>ui-layout.css</span></button>
@@ -332,8 +333,8 @@
 
           <div class="scene-draft-box">
             <strong>SCENE DATA</strong>
-            <small>Hidden/Locked are editor-only. COPY CURRENT exports clean <code>scene-data.js</code>.</small>
-            <button id="resetSceneBtn">RESET TO LIVE S1 MAP</button>
+            <small>Hidden/Locked are editor-only. COPY CURRENT exports the currently selected map module.</small>
+            <button id="resetSceneBtn">RESET CURRENT MAP</button>
           </div>
         </div>
 
@@ -427,6 +428,6 @@
     </div>
   </div>
 
-  <script type="module" src="./studio.js?v=20261007-1v1scene1"></script>
+  <script type="module" src="./studio.js?v=20261007-1v1scene2"></script>
 </body>
 </html>
