@@ -34,7 +34,6 @@ const ui = {
   copyId: $('profileCopyId'),
   backend: $('profileBackendState'),
   friendsBackend: $('friendsBackendState'),
-  rank: $('profileRank'),
   matches: $('profileMatches'),
   wins: $('profileWins'),
   kills: $('profileKills'),
@@ -64,18 +63,8 @@ function getLocalStats() {
   };
 }
 
-function getPlayerTitle(stats=getLocalStats()) {
-  const score=stats.wins*12+stats.kills+stats.matches*2;
-  if(score>=250) return 'DIAMOND';
-  if(score>=140) return 'PLATINUM';
-  if(score>=70) return 'GOLD';
-  if(score>=25) return 'SILVER';
-  return 'BRONZE';
-}
-
 function renderProfileStats() {
   const stats=getLocalStats();
-  if(ui.rank) ui.rank.textContent=getPlayerTitle(stats);
   if(ui.matches) ui.matches.textContent=String(stats.matches);
   if(ui.wins) ui.wins.textContent=String(stats.wins);
   if(ui.kills) ui.kills.textContent=String(stats.kills);
