@@ -57,6 +57,7 @@
     favoriteWeapon:'LMG5',
     equippedCard:'vanguard',
     equippedItem:'field',
+    ownedItems:['field'],
     region:'ASIA',
     clanTag:'',
     tournamentRegistered:false,
@@ -82,7 +83,8 @@
         stats:{...base.stats,...(raw.stats||{})},
         claimedMail:Array.isArray(raw.claimedMail)?raw.claimedMail:[],
         claimedMissions:Array.isArray(raw.claimedMissions)?raw.claimedMissions:[],
-        claimedSeason:Array.isArray(raw.claimedSeason)?raw.claimedSeason:[]
+        claimedSeason:Array.isArray(raw.claimedSeason)?raw.claimedSeason:[],
+        ownedItems:Array.isArray(raw.ownedItems)?raw.ownedItems:['field']
       };
     }catch{
       return base;
@@ -231,12 +233,16 @@
   }
 
   function renderInventory(){
-    return '<div class="s2-grid">'+INVENTORY_ITEMS.map(item=>
-      '<article class="s2-tile '+(state.equippedItem===item.id?'selected':'')+'">'+
+    return '<div class="s2-grid">'+INVENTORY_ITEMS.map(item=>{
+      const owned=state.ownedItems.includes(item.id);
+      const equipped=state.equippedItem===item.id;
+      return '<article class="s2-tile '+(equipped?'selected':'')+'">'+
         '<small>'+item.slot+'</small><strong>'+item.name+'</strong><p>'+item.desc+'</p>'+
-        button(state.equippedItem===item.id?'EQUIPPED':'EQUIP','item:'+item.id,state.equippedItem===item.id?'muted':'')+
-      '</article>'
-    ).join('')+'</div>';
+        (owned
+          ? button(equipped?'EQUIPPED':'EQUIP','item:'+item.id,equipped?'muted':'')
+          : '<b class="s2-state">LOCKED · FIND IN SHOP</b>')+
+      '</article>';
+    }).join('')+'</div>';
   }
 
   function renderMail(){
@@ -377,10 +383,27 @@
   }
 
   function renderShop(){
+    const products=[
+      {id:'gold',name:'GOLD BADGE',price:150,desc:'Local cosmetic badge.'},
+      {id:'crimson',name:'CRIMSON TAG',price:100,desc:'Local arena accent.'}
+    ];
+
     return '<div class="s2-grid">'+
-      '<article class="s2-tile"><small>FREE CATALOG</small><strong>FIELD KIT</strong><p>Already included with Season 2.</p>'+button('EQUIP','item:field')+'</article>'+
-      '<article class="s2-tile"><small>150 CREDITS</small><strong>GOLD BADGE</strong><p>Local cosmetic badge.</p>'+button(state.credits>=150?'BUY / EQUIP':'NEED 150','shop:gold',state.credits>=150?'':'muted')+'</article>'+
-      '<article class="s2-tile"><small>100 CREDITS</small><strong>CRIMSON TAG</strong><p>Local arena accent.</p>'+button(state.credits>=100?'BUY / EQUIP':'NEED 100','shop:crimson',state.credits>=100?'':'muted')+'</article>'+
+      '<article class="s2-tile '+(state.equippedItem==='field'?'selected':'')+'"><small>OWNED</small><strong>FIELD KIT</strong><p>Included with Season 2.</p>'+button(state.equippedItem==='field'?'EQUIPPED':'EQUIP','item:field',state.equippedItem==='field'?'muted':'')+'</article>'+
+      products.map(product=>{
+        const owned=state.ownedItems.includes(product.id);
+        const equipped=state.equippedItem===product.id;
+        let action;
+        if(equipped) action=button('EQUIPPED','item:'+product.id,'muted');
+        else if(owned) action=button('EQUIP','item:'+product.id);
+        else action=button(
+          state.credits>=product.price?'BUY · '+product.price:'NEED '+product.price,
+          'shop:'+product.id,
+          state.credits>=product.price?'':'muted'
+        );
+
+        return '<article class="s2-tile '+(equipped?'selected':'')+'"><small>'+(owned?'OWNED':product.price+' CREDITS')+'</small><strong>'+product.name+'</strong><p>'+product.desc+'</p>'+action+'</article>';
+      }).join('')+
     '</div><div class="s2-note">This catalog uses only local S2 credits and does not process real-money purchases.</div>';
   }
 
@@ -473,6 +496,7 @@
     }
 
     if(kind==='item'){
+      if(!state.ownedItems.includes(value)) return;
       state.equippedItem=value;
       save();
       renderPage(activePage);
@@ -544,12 +568,21 @@
     if(kind==='shop'){
       const prices={gold:150,crimson:100};
       const price=prices[value]||0;
+
+      if(state.ownedItems.includes(value)){
+        state.equippedItem=value;
+        save();
+        renderPage(activePage);
+        return;
+      }
+
       if(state.credits<price) return;
       state.credits-=price;
+      state.ownedItems.push(value);
       state.equippedItem=value;
       save();
       renderPage(activePage);
-      toast('EQUIPPED '+value.toUpperCase());
+      toast('PURCHASED '+value.toUpperCase());
       return;
     }
 
