@@ -198,8 +198,8 @@ export function createHumanoidCharacter(options={}){
   weaponMount.add(weapon);
 
   // Hands are posed toward the weapon by rotating shoulder pivots.
-  leftArm.rotation.set(-1.02,0,-.18);
-  rightArm.rotation.set(-1.10,0,.15);
+  leftArm.rotation.set(1.02,0,-.18);
+  rightArm.rotation.set(1.10,0,.15);
 
   root.userData.characterRig={
     ...rig,
@@ -315,19 +315,19 @@ export function updateHumanoidAnimation(character,state={},dt=1/60){
     rig.rightLeg.rotation.x=dampAngle(rig.rightLeg.rotation.x,.36,12,dt);
   }
 
-  const baseArmX=aiming?-1.22:-1.02;
+  const baseArmX=aiming?1.22:1.02;
   const walkArm=aiming?0:strideOpp*.22*moveWeight;
   const reloadWave=rig.reload*Math.sin(rig.time*9)*.16;
 
   rig.leftArm.rotation.x=dampAngle(
     rig.leftArm.rotation.x,
-    baseArmX+walkArm+(reloading?.30+reloadWave:0),
+    baseArmX+walkArm+(reloading?-.30+reloadWave:0),
     14,
     dt
   );
   rig.rightArm.rotation.x=dampAngle(
     rig.rightArm.rotation.x,
-    baseArmX-walkArm+(reloading?.08:0),
+    baseArmX-walkArm+(reloading?-.08:0),
     14,
     dt
   );
