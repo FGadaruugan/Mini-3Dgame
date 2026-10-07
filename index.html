@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
   <meta name="theme-color" content="#111827" />
   <title>Mini 3D Battle</title>
-  <link rel="stylesheet" href="./style.css?v=20261007-s2hub3" />
+  <link rel="stylesheet" href="./style.css?v=20261007-profile-split1" />
   <link rel="stylesheet" href="./ui-layout.css?v=20261004-gui1" />
 </head>
 <body>
@@ -267,16 +267,16 @@
     </div>
 
     <div id="profileOverlay" class="profile-overlay hidden">
-      <div class="profile-shell">
+      <div class="profile-shell profile-only-shell">
         <div class="profile-header">
           <div>
-            <small>SOCIAL</small>
-            <strong>PROFILE & FRIENDS</strong>
+            <small>PLAYER</small>
+            <strong>PROFILE</strong>
           </div>
           <button id="profileClose" class="profile-close" aria-label="Close profile">×</button>
         </div>
 
-        <div class="profile-body">
+        <div class="profile-body profile-only-body">
           <aside class="profile-card">
             <div class="profile-avatar-wrap">
               <img id="profileAvatar" class="profile-avatar no-image" alt="" />
@@ -302,36 +302,95 @@
             <button id="profileSignOut" class="profile-signout hidden">SIGN OUT</button>
           </aside>
 
-          <main class="social-panel">
-            <section class="add-friend-panel">
+          <main class="profile-stats-panel">
+            <section class="profile-rank-card">
               <div>
-                <small>ADD FRIEND</small>
-                <strong>Search by 8-digit Player ID</strong>
+                <small>PLAYER TITLE</small>
+                <strong id="profileRank">BRONZE</strong>
               </div>
-              <div class="friend-id-search">
-                <input id="friendIdInput" inputmode="numeric" maxlength="8" placeholder="12345678" />
-                <button id="addFriendBtn">ADD</button>
-              </div>
+              <span>LOCAL PROFILE</span>
             </section>
 
-            <section class="social-section">
-              <div class="social-section-head">
+            <section class="profile-stat-grid">
+              <article>
+                <small>MATCHES</small>
+                <strong id="profileMatches">0</strong>
+              </article>
+              <article>
+                <small>WINS</small>
+                <strong id="profileWins">0</strong>
+              </article>
+              <article>
+                <small>KILLS</small>
+                <strong id="profileKills">0</strong>
+              </article>
+              <article>
+                <small>SOLO WINS</small>
+                <strong id="profileSoloWins">0</strong>
+              </article>
+              <article>
+                <small>1V1 WINS</small>
+                <strong id="profileDuelWins">0</strong>
+              </article>
+            </section>
+
+            <section class="profile-link-card">
+              <div>
+                <small>SOCIAL</small>
                 <strong>FRIENDS</strong>
-                <small>INVITE is available while a friend is online</small>
+                <p>Friends, requests, online status and 1V1 invites are on a separate screen.</p>
               </div>
-              <div id="friendsList" class="social-list"></div>
-              <div id="friendsEmpty" class="social-empty">No friends yet.</div>
-            </section>
-
-            <section class="social-section requests-section">
-              <div class="social-section-head">
-                <strong>REQUESTS</strong>
-                <small>Incoming friend requests</small>
-              </div>
-              <div id="friendRequestsList" class="social-list"></div>
-              <div id="requestsEmpty" class="social-empty">No pending requests.</div>
+              <button id="profileOpenFriends">OPEN FRIENDS</button>
             </section>
           </main>
+        </div>
+      </div>
+    </div>
+
+    <div id="friendsOverlay" class="profile-overlay hidden">
+      <div class="profile-shell friends-shell">
+        <div class="profile-header">
+          <div>
+            <small>SOCIAL</small>
+            <strong>FRIENDS</strong>
+          </div>
+          <div class="friends-header-actions">
+            <button id="friendsOpenProfile" class="friends-profile-link">PROFILE</button>
+            <button id="friendsClose" class="profile-close" aria-label="Close friends">×</button>
+          </div>
+        </div>
+
+        <div class="friends-body">
+          <div id="friendsBackendState" class="profile-backend-state friends-backend-state">BACKEND NOT CONNECTED</div>
+
+          <section class="add-friend-panel">
+            <div>
+              <small>ADD FRIEND</small>
+              <strong>Search by 8-digit Player ID</strong>
+            </div>
+            <div class="friend-id-search">
+              <input id="friendIdInput" inputmode="numeric" maxlength="8" placeholder="12345678" />
+              <button id="addFriendBtn">ADD</button>
+            </div>
+          </section>
+
+          <section class="social-section">
+            <div class="social-section-head">
+              <strong>FRIENDS</strong>
+              <small>INVITE is available while a friend is online</small>
+            </div>
+            <div id="friendsList" class="social-list"></div>
+            <div id="friendsEmpty" class="social-empty">No friends yet.</div>
+          </section>
+
+          <section class="social-section requests-section">
+            <div class="social-section-head">
+              <strong>REQUESTS</strong>
+              <small>Incoming friend requests</small>
+            </div>
+            <div id="friendRequestsList" class="social-list"></div>
+            <div id="requestsEmpty" class="social-empty">No pending requests.</div>
+          </section>
         </div>
       </div>
     </div>
@@ -512,9 +571,9 @@
   </div>
 
   <script src="./studio-gui-test.js?v=20261004-gui1"></script>
-  <script src="./lobby-hub.js?v=20261007-s2hub3"></script>
+  <script src="./lobby-hub.js?v=20261007-profile-split1"></script>
   <script type="module" src="./game.js?v=20261007-s2hub3"></script>
-  <script type="module" src="./profile.js?v=20261004-stable-social2"></script>
+  <script type="module" src="./profile.js?v=20261007-profile-split1"></script>
   <script type="module" src="./studio-entry.js?v=20261004-gui1"></script>
 </body>
 </html>
