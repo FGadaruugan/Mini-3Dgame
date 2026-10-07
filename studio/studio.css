@@ -679,3 +679,64 @@ body.gui-mode #fileState{color:#6ec8ff}
   .gui-editor-toolbar{align-items:flex-start}
   .gui-canvas-wrap{min-height:420px}
 }
+
+
+/* ===== Scene map profiles: BR + 1V1 ===== */
+.scene-map-picker{
+  display:grid;
+  gap:5px;
+  margin-bottom:8px;
+  padding:8px;
+  border:1px solid #263442;
+  border-radius:7px;
+  background:#0a1119;
+}
+.scene-map-picker label{
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr);
+  align-items:center;
+  gap:8px;
+  margin:0;
+  color:#708398;
+  font-size:8px;
+  font-weight:1000;
+  letter-spacing:.08em;
+}
+.scene-map-picker select,
+.scene-map-settings input{
+  min-width:0;
+  width:100%;
+  border:1px solid #2b3b4b;
+  border-radius:5px;
+  background:#081019;
+  color:#dbe5ee;
+  padding:7px;
+  font-size:9px;
+}
+.scene-map-picker small{
+  color:#627689;
+  font-size:8px;
+  line-height:1.35;
+}
+.scene-map-settings{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:6px;
+  margin-bottom:8px;
+  padding:8px;
+  border:1px solid #254258;
+  border-radius:7px;
+  background:#0b1822;
+}
+.scene-map-settings label{
+  display:grid;
+  gap:4px;
+  margin:0;
+  color:#78a8c7;
+  font-size:7px;
+  font-weight:900;
+}
+.scene-map-settings input[type="color"]{
+  min-height:34px;
+  padding:3px;
+}
