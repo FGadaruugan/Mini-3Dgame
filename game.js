@@ -5,7 +5,7 @@ import {
   getHitMultiplier,
   pulseCharacterAction,
   updateHumanoidAnimation
-} from './character-system.js?v=20261007-player-rework1';
+} from './character-system.js?v=20261007-player-rework2';
 
 const $ = (id) => document.getElementById(id);
 const UI = {
