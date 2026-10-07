@@ -22,6 +22,10 @@ let peerProfile = null;
 const ui = {
   overlay: $('profileOverlay'),
   close: $('profileClose'),
+  friendsOverlay: $('friendsOverlay'),
+  friendsClose: $('friendsClose'),
+  friendsOpenProfile: $('friendsOpenProfile'),
+  profileOpenFriends: $('profileOpenFriends'),
   signIn: $('profileGoogleSignIn'),
   signOut: $('profileSignOut'),
   avatar: $('profileAvatar'),
@@ -29,6 +33,13 @@ const ui = {
   id: $('profilePlayerId'),
   copyId: $('profileCopyId'),
   backend: $('profileBackendState'),
+  friendsBackend: $('friendsBackendState'),
+  rank: $('profileRank'),
+  matches: $('profileMatches'),
+  wins: $('profileWins'),
+  kills: $('profileKills'),
+  soloWins: $('profileSoloWins'),
+  duelWins: $('profileDuelWins'),
   friendId: $('friendIdInput'),
   addFriend: $('addFriendBtn'),
   friends: $('friendsList'),
@@ -42,19 +53,65 @@ const ui = {
   friendsCount: document.querySelector('[data-shortcut="friends"] small')
 };
 
+function getLocalStats() {
+  const raw=window.Mini3DS2?.getState?.()?.stats || {};
+  return {
+    matches:Math.max(0,Number(raw.matches)||0),
+    wins:Math.max(0,Number(raw.wins)||0),
+    kills:Math.max(0,Number(raw.kills)||0),
+    soloWins:Math.max(0,Number(raw.soloWins)||0),
+    duelWins:Math.max(0,Number(raw.duelWins)||0)
+  };
+}
+
+function getPlayerTitle(stats=getLocalStats()) {
+  const score=stats.wins*12+stats.kills+stats.matches*2;
+  if(score>=250) return 'DIAMOND';
+  if(score>=140) return 'PLATINUM';
+  if(score>=70) return 'GOLD';
+  if(score>=25) return 'SILVER';
+  return 'BRONZE';
+}
+
+function renderProfileStats() {
+  const stats=getLocalStats();
+  if(ui.rank) ui.rank.textContent=getPlayerTitle(stats);
+  if(ui.matches) ui.matches.textContent=String(stats.matches);
+  if(ui.wins) ui.wins.textContent=String(stats.wins);
+  if(ui.kills) ui.kills.textContent=String(stats.kills);
+  if(ui.soloWins) ui.soloWins.textContent=String(stats.soloWins);
+  if(ui.duelWins) ui.duelWins.textContent=String(stats.duelWins);
+}
+
 function openProfile() {
+  ui.friendsOverlay?.classList.add('hidden');
   ui.overlay?.classList.remove('hidden');
-  if (configured && session) refreshAll();
+  renderProfileStats();
+  if (configured && session) refreshProfile();
 }
 
 function closeProfile() {
   ui.overlay?.classList.add('hidden');
 }
 
+function openFriends() {
+  ui.overlay?.classList.add('hidden');
+  ui.friendsOverlay?.classList.remove('hidden');
+  if (configured && session) {
+    Promise.all([refreshFriends(),refreshRequests()]);
+  }
+}
+
+function closeFriends() {
+  ui.friendsOverlay?.classList.add('hidden');
+}
+
 function setStatus(message, type='') {
-  if (!ui.backend) return;
-  ui.backend.textContent = message;
-  ui.backend.dataset.state = type;
+  [ui.backend,ui.friendsBackend].forEach(el=>{
+    if(!el) return;
+    el.textContent=message;
+    el.dataset.state=type;
+  });
 }
 
 function updateTopProfile() {
@@ -85,6 +142,7 @@ function renderProfile() {
     ui.signIn.classList.remove('hidden');
     ui.signOut.classList.add('hidden');
     updateTopProfile();
+    renderProfileStats();
     return;
   }
 
@@ -100,6 +158,7 @@ function renderProfile() {
   ui.signIn.classList.add('hidden');
   ui.signOut.classList.remove('hidden');
   updateTopProfile();
+  renderProfileStats();
 }
 
 function renderFriends() {
@@ -327,6 +386,8 @@ async function respondInvite(accept) {
 
   ui.inviteToast.classList.add('hidden');
   if (accept) {
+    closeProfile();
+    closeFriends();
     currentRoomCode = data || '';
     matchRole = 'guest';
     setStatus('JOINING ROOM ' + currentRoomCode, 'ok');
@@ -544,8 +605,19 @@ document.querySelectorAll('.mobile-profile,.lobby-player').forEach(el => {
   el.addEventListener('click',openProfile);
 });
 
-document.querySelector('[data-shortcut="friends"]')?.addEventListener('click',openProfile);
+document.querySelector('[data-shortcut="friends"]')?.addEventListener('click',openFriends);
 ui.close?.addEventListener('click',closeProfile);
+ui.friendsClose?.addEventListener('click',closeFriends);
+ui.profileOpenFriends?.addEventListener('click',openFriends);
+ui.friendsOpenProfile?.addEventListener('click',openProfile);
+
+window.Mini3DProfile={
+  openProfile,
+  closeProfile,
+  openFriends,
+  closeFriends,
+  refreshStats:renderProfileStats
+};
 ui.copyId?.addEventListener('click',async()=>{
   if (!profile?.player_id) return;
   await navigator.clipboard?.writeText(profile.player_id);
@@ -557,6 +629,8 @@ ui.friendId?.addEventListener('input',()=>{
 });
 ui.inviteAccept?.addEventListener('click',()=>respondInvite(true));
 ui.inviteReject?.addEventListener('click',()=>respondInvite(false));
+
+document.addEventListener('mini3d:profile-stats-updated',renderProfileStats);
 
 if (!configured) {
   renderProfile();
@@ -580,6 +654,7 @@ if (!configured) {
   ui.signOut?.addEventListener('click',async()=>{
     await supabase.auth.signOut();
     closeProfile();
+    closeFriends();
   });
 
   const { data:{ session:initialSession } } = await supabase.auth.getSession();
