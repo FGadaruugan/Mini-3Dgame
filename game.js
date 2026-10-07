@@ -110,6 +110,7 @@ const ONEVONE_RESPAWN_MS = 3000;
 const ONEVONE_SHIELD_MS = 3000;
 
 let multiplayerTimeRemaining = ONEVONE_MATCH_SECONDS;
+let multiplayerLastClockAt = 0;
 let multiplayerRespawnAt = 0;
 let multiplayerShieldUntil = 0;
 let multiplayerFinished = false;
@@ -1331,23 +1332,20 @@ function respawnOneVOnePlayer() {
   updateHud();
 }
 
-function updateOneVOneMatch(dt) {
+function updateOneVOneMatch() {
   if(!multiplayer || multiplayerFinished) return;
 
   const now=performance.now();
-
-  if(multiplayerRole==='host'){
-    multiplayerTimeRemaining=Math.max(0,multiplayerTimeRemaining-dt);
-  }else{
-    // Guest keeps a smooth local countdown between authoritative host updates.
-    multiplayerTimeRemaining=Math.max(0,multiplayerTimeRemaining-dt);
-  }
+  if(!multiplayerLastClockAt) multiplayerLastClockAt=now;
+  const realDt=Math.max(0,(now-multiplayerLastClockAt)/1000);
+  multiplayerLastClockAt=now;
+  multiplayerTimeRemaining=Math.max(0,multiplayerTimeRemaining-realDt);
 
   if(hp<=0 && multiplayerRespawnAt>0 && now>=multiplayerRespawnAt){
     respawnOneVOnePlayer();
   }
 
-  if(multiplayerRole==='host' && multiplayerTimeRemaining<=0){
+  if(multiplayerTimeRemaining<=0){
     if(kills>remoteKills) finishOneVOneMatch('win','TIME LIMIT');
     else if(kills<remoteKills) finishOneVOneMatch('lose','TIME LIMIT');
     else finishOneVOneMatch('draw','TIME LIMIT · TIED SCORE');
@@ -1422,6 +1420,7 @@ async function startMultiplayerMatch(detail) {
   };
 
   multiplayerTimeRemaining=ONEVONE_MATCH_SECONDS;
+  multiplayerLastClockAt=performance.now();
   multiplayerRespawnAt=0;
   multiplayerShieldUntil=0;
   multiplayerFinished=false;
@@ -1526,6 +1525,7 @@ document.addEventListener('mini3d:net-state',event=>{
       0,
       ONEVONE_MATCH_SECONDS
     );
+    multiplayerLastClockAt=performance.now();
   }
 
   remoteKills=nextRemoteKills;
@@ -2215,6 +2215,7 @@ function showLobby() {
   multiplayerRole=null;
   remoteUserId=null;
   multiplayerTimeRemaining=ONEVONE_MATCH_SECONDS;
+  multiplayerLastClockAt=0;
   multiplayerRespawnAt=0;
   multiplayerShieldUntil=0;
   multiplayerFinished=false;
@@ -2854,6 +2855,10 @@ function setupLookPad() {
 
 function togglePause() {
   if (!started || ended) return;
+  if(multiplayer){
+    showMessage('PAUSE DISABLED IN 1V1',550);
+    return;
+  }
   paused = !paused;
   showMessage(paused ? 'PAUSED' : '', paused ? 999999 : 0);
   if (!paused) clock.getDelta();
