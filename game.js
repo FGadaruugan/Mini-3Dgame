@@ -98,8 +98,23 @@ let multiplayerRoom = null;
 let multiplayerRole = null;
 let remotePlayer = null;
 let remoteUserId = null;
-let remoteTarget = { x:0, y:0, z:0, yaw:0, hp:100 };
+let remoteTarget = {
+  x:0, y:0, z:0, yaw:0, hp:100,
+  alive:true, shielded:false, kills:0, role:null, timeRemaining:600
+};
 let lastNetStateSent = 0;
+
+const ONEVONE_MATCH_SECONDS = 10 * 60;
+const ONEVONE_KILL_LIMIT = 40;
+const ONEVONE_RESPAWN_MS = 3000;
+const ONEVONE_SHIELD_MS = 3000;
+
+let multiplayerTimeRemaining = ONEVONE_MATCH_SECONDS;
+let multiplayerRespawnAt = 0;
+let multiplayerShieldUntil = 0;
+let multiplayerFinished = false;
+let remoteAliveLast = null;
+let remoteKills = 0;
 
 let battleRoyaleWorldObjects = [];
 let battleRoyaleColliders = [];
@@ -214,7 +229,9 @@ function syncLegacyAmmo() {
   const slot=getActiveWeaponSlot();
   const def=getWeaponDef(slot);
   ammo=slot ? slot.magAmmo : 0;
-  reserve=def ? (inventory.ammo[def.ammoType] || 0) : 0;
+  reserve=def
+    ? (multiplayer ? Infinity : (inventory.ammo[def.ammoType] || 0))
+    : 0;
 }
 
 function backpackUsed() {
@@ -1177,6 +1194,185 @@ async function activateOneVOneMap() {
   };
 }
 
+function setupOneVOneLoadout() {
+  inventory=createEmptyInventory();
+  inventory.weapons[0]={id:'LMG5',magAmmo:WEAPONS.LMG5.mag};
+  inventory.weapons[1]=null;
+  inventory.ammo['5.56']=0;
+  inventory.ammo['9mm']=0;
+  inventory.bandage=0;
+  inventory.armor=0;
+  activeWeaponSlot=0;
+  reloading=false;
+  UI.reloadState.textContent='';
+  syncLegacyAmmo();
+}
+
+function getOneVOneLocalSpawn() {
+  return multiplayerRole==='host'?oneVOneSpawns.host:oneVOneSpawns.guest;
+}
+
+function applyOneVOneSpawn() {
+  const spawn=getOneVOneLocalSpawn();
+  player.position.fromArray(spawn.position);
+  yaw=spawn.yaw;
+  pitch=-.18;
+  bodyYaw=wrapAngle(yaw+Math.PI);
+  player.rotation.y=bodyYaw;
+}
+
+function formatOneVOneTime(seconds) {
+  const total=Math.max(0,Math.ceil(Number(seconds)||0));
+  const minutes=Math.floor(total/60);
+  const secs=String(total%60).padStart(2,'0');
+  return minutes+':'+secs;
+}
+
+function buildOneVOneNetworkState(extra={}) {
+  return {
+    x:player.position.x,
+    y:player.position.y,
+    z:player.position.z,
+    yaw:player.rotation.y,
+    hp,
+    alive:hp>0,
+    shielded:hp>0 && performance.now()<multiplayerShieldUntil,
+    kills,
+    role:multiplayerRole,
+    timeRemaining:multiplayerTimeRemaining,
+    ...extra
+  };
+}
+
+function finishOneVOneMatch(result,reason='MATCH COMPLETE',{broadcast=true}={}) {
+  if(!multiplayer || multiplayerFinished) return;
+  multiplayerFinished=true;
+
+  const winnerRole=result==='draw'
+    ? 'draw'
+    : result==='win'
+      ? multiplayerRole
+      : (multiplayerRole==='host'?'guest':'host');
+
+  if(broadcast){
+    window.Mini3DNet?.sendState(buildOneVOneNetworkState({
+      finished:true,
+      winnerRole,
+      finishReason:reason
+    }));
+  }
+
+  ended=true;
+  paused=false;
+  reloading=false;
+  mobile.firing=false;
+  multiplayerRespawnAt=0;
+  document.exitPointerLock?.();
+
+  UI.endTitle.textContent=result==='win'
+    ? 'WINNER!'
+    : result==='draw'
+      ? 'DRAW'
+      : 'DEFEAT';
+
+  UI.endText.textContent=
+    'KILLS '+kills+' - '+remoteKills+
+    ' · '+reason+
+    ' · '+formatOneVOneTime(multiplayerTimeRemaining);
+
+  UI.endOverlay.classList.remove('hidden');
+  updateHud();
+}
+
+function checkOneVOneKillLimit() {
+  if(!multiplayer || multiplayerFinished) return false;
+
+  if(kills>=ONEVONE_KILL_LIMIT){
+    finishOneVOneMatch('win','40 KILL LIMIT');
+    return true;
+  }
+
+  if(remoteKills>=ONEVONE_KILL_LIMIT){
+    finishOneVOneMatch('lose','OPPONENT REACHED 40 KILLS');
+    return true;
+  }
+
+  return false;
+}
+
+function handleOneVOneDeath() {
+  if(!multiplayer || multiplayerFinished || multiplayerRespawnAt>0) return;
+
+  hp=0;
+  player.visible=false;
+  reloading=false;
+  mobile.firing=false;
+  multiplayerShieldUntil=0;
+  multiplayerRespawnAt=performance.now()+ONEVONE_RESPAWN_MS;
+  lastNetStateSent=0;
+
+  UI.reloadState.textContent='';
+  showMessage('ELIMINATED · RESPAWN IN 3s',2900);
+  updateHud();
+}
+
+function respawnOneVOnePlayer() {
+  if(!multiplayer || multiplayerFinished) return;
+
+  setupOneVOneLoadout();
+  hp=GAME.maxHp;
+  multiplayerRespawnAt=0;
+  multiplayerShieldUntil=performance.now()+ONEVONE_SHIELD_MS;
+  applyOneVOneSpawn();
+  player.visible=true;
+  lastNetStateSent=0;
+
+  showMessage('SPAWN SHIELD · 3s',1000);
+  updateHud();
+}
+
+function updateOneVOneMatch(dt) {
+  if(!multiplayer || multiplayerFinished) return;
+
+  const now=performance.now();
+
+  if(multiplayerRole==='host'){
+    multiplayerTimeRemaining=Math.max(0,multiplayerTimeRemaining-dt);
+  }else{
+    // Guest keeps a smooth local countdown between authoritative host updates.
+    multiplayerTimeRemaining=Math.max(0,multiplayerTimeRemaining-dt);
+  }
+
+  if(hp<=0 && multiplayerRespawnAt>0 && now>=multiplayerRespawnAt){
+    respawnOneVOnePlayer();
+  }
+
+  if(multiplayerRole==='host' && multiplayerTimeRemaining<=0){
+    if(kills>remoteKills) finishOneVOneMatch('win','TIME LIMIT');
+    else if(kills<remoteKills) finishOneVOneMatch('lose','TIME LIMIT');
+    else finishOneVOneMatch('draw','TIME LIMIT · TIED SCORE');
+    return;
+  }
+
+  const respawnLeft=hp<=0 && multiplayerRespawnAt>0
+    ? Math.max(0,(multiplayerRespawnAt-now)/1000)
+    : 0;
+  const shieldLeft=hp>0
+    ? Math.max(0,(multiplayerShieldUntil-now)/1000)
+    : 0;
+
+  let suffix='';
+  if(respawnLeft>0) suffix=' · RESPAWN '+respawnLeft.toFixed(1)+'s';
+  else if(shieldLeft>0) suffix=' · SHIELD '+shieldLeft.toFixed(1)+'s';
+
+  UI.zoneInfo.textContent=
+    '1V1 · '+formatOneVOneTime(multiplayerTimeRemaining)+
+    ' · KILLS '+kills+'-'+remoteKills+
+    suffix;
+
+  elapsed=ONEVONE_MATCH_SECONDS-multiplayerTimeRemaining;
+}
+
 function createRemotePlayer() {
   if (remotePlayer) {
     scene.remove(remotePlayer);
@@ -1220,7 +1416,17 @@ async function startMultiplayerMatch(detail) {
   multiplayerRoom=detail.roomCode;
   multiplayerRole=detail.role;
   remoteUserId=null;
-  remoteTarget={x:0,y:0,z:0,yaw:0,hp:100};
+  remoteTarget={
+    x:0,y:0,z:0,yaw:0,hp:100,
+    alive:true,shielded:false,kills:0,role:null,timeRemaining:ONEVONE_MATCH_SECONDS
+  };
+
+  multiplayerTimeRemaining=ONEVONE_MATCH_SECONDS;
+  multiplayerRespawnAt=0;
+  multiplayerShieldUntil=0;
+  multiplayerFinished=false;
+  remoteAliveLast=null;
+  remoteKills=0;
 
   resetMatch({battleRoyale:false});
   bots.forEach(bot=>bot.visible=false);
@@ -1230,16 +1436,14 @@ async function startMultiplayerMatch(detail) {
   showMessage('1V1 · LOADING ARENA',100000);
   await activateOneVOneMap();
 
+  setupOneVOneLoadout();
   hp=GAME.maxHp;
   kills=0;
   elapsed=0;
-  spawnProtection=2;
+  spawnProtection=0;
 
-  const spawn=detail.role==='host'?oneVOneSpawns.host:oneVOneSpawns.guest;
-  player.position.fromArray(spawn.position);
-  yaw=spawn.yaw;
-  bodyYaw=wrapAngle(yaw+Math.PI);
-  player.rotation.y=bodyYaw;
+  applyOneVOneSpawn();
+  player.visible=true;
 
   createRemotePlayer();
 
@@ -1250,8 +1454,8 @@ async function startMultiplayerMatch(detail) {
   document.getElementById('profileOverlay')?.classList.add('hidden');
   UI.endOverlay.classList.add('hidden');
   setGameUiVisible(true);
-  UI.zoneInfo.textContent='1V1 · ' + (detail.role==='host'?'HOST':'GUEST') + ' · ROOM ' + multiplayerRoom;
-  showMessage('1V1 · ARENA READY',900);
+  UI.zoneInfo.textContent='1V1 · 10:00 · KILLS 0-0';
+  showMessage('1V1 · LMG-5 · FIRST TO 40 / 10 MIN',1300);
   clock.getDelta();
 }
 
@@ -1265,18 +1469,11 @@ function updateRemotePlayer(dt) {
 }
 
 function sendMultiplayerState() {
-  if (!multiplayer || !window.Mini3DNet) return;
+  if (!multiplayer || !window.Mini3DNet || multiplayerFinished) return;
   const now=performance.now();
   if (now-lastNetStateSent<50) return;
   lastNetStateSent=now;
-  window.Mini3DNet.sendState({
-    x:player.position.x,
-    y:player.position.y,
-    z:player.position.z,
-    yaw:player.rotation.y,
-    hp,
-    alive:hp>0
-  });
+  window.Mini3DNet.sendState(buildOneVOneNetworkState());
 }
 
 document.addEventListener('mini3d:room-join',event=>{
@@ -1302,34 +1499,86 @@ document.addEventListener('mini3d:room-presence',event=>{
 
 document.addEventListener('mini3d:net-state',event=>{
   if (!multiplayer || event.detail.roomCode!==multiplayerRoom) return;
+
   remoteUserId=event.detail.userId || remoteUserId;
+
+  const remoteAlive=event.detail.alive!==false;
+  const nextRemoteKills=Math.max(0,Number(event.detail.kills)||0);
+
   remoteTarget={
     x:Number(event.detail.x)||0,
     y:Number(event.detail.y)||0,
     z:Number(event.detail.z)||0,
     yaw:Number(event.detail.yaw)||0,
-    hp:Number(event.detail.hp ?? 100)
+    hp:Number(event.detail.hp ?? 100),
+    alive:remoteAlive,
+    shielded:Boolean(event.detail.shielded),
+    kills:nextRemoteKills,
+    role:event.detail.role||remoteTarget.role||null,
+    timeRemaining:Number.isFinite(Number(event.detail.timeRemaining))
+      ? Number(event.detail.timeRemaining)
+      : remoteTarget.timeRemaining
   };
+
+  if(event.detail.role==='host' && multiplayerRole==='guest' && Number.isFinite(Number(event.detail.timeRemaining))){
+    multiplayerTimeRemaining=THREE.MathUtils.clamp(
+      Number(event.detail.timeRemaining),
+      0,
+      ONEVONE_MATCH_SECONDS
+    );
+  }
+
+  remoteKills=nextRemoteKills;
+
+  if(remoteAliveLast===true && remoteAlive===false && !multiplayerFinished){
+    kills++;
+    showMessage('ELIMINATION · '+kills+'/'+ONEVONE_KILL_LIMIT,700);
+    updateHud();
+    checkOneVOneKillLimit();
+  }
+  remoteAliveLast=remoteAlive;
+
   if (remotePlayer) {
     remotePlayer.userData.userId=remoteUserId;
     remotePlayer.userData.hp=remoteTarget.hp;
-    remotePlayer.visible=event.detail.alive!==false;
+    remotePlayer.userData.shielded=remoteTarget.shielded;
+    remotePlayer.visible=remoteAlive;
   }
 
-  if(event.detail.alive===false && !ended){
-    endMatch(true);
+  if(event.detail.finished && !multiplayerFinished){
+    const winnerRole=event.detail.winnerRole;
+    const result=winnerRole==='draw'
+      ? 'draw'
+      : winnerRole===multiplayerRole
+        ? 'win'
+        : 'lose';
+    finishOneVOneMatch(
+      result,
+      String(event.detail.finishReason||'MATCH COMPLETE'),
+      {broadcast:false}
+    );
+    return;
   }
+
+  if(!multiplayerFinished) checkOneVOneKillLimit();
 });
 
 document.addEventListener('mini3d:net-damage',event=>{
-  if (!multiplayer || ended) return;
+  if (!multiplayer || ended || multiplayerFinished || hp<=0) return;
+
+  if(performance.now()<multiplayerShieldUntil){
+    showMessage('SPAWN SHIELD',260);
+    return;
+  }
+
   const amount=THREE.MathUtils.clamp(Number(event.detail.amount)||0,0,100);
   if (amount<=0) return;
+
   hp=Math.max(0,hp-amount);
   updateHud();
-  showHitmarker();
-  if (hp<=0) {
-    endMatch(false);
+
+  if(hp<=0){
+    handleOneVOneDeath();
   }
 });
 
@@ -1965,6 +2214,12 @@ function showLobby() {
   multiplayerRoom=null;
   multiplayerRole=null;
   remoteUserId=null;
+  multiplayerTimeRemaining=ONEVONE_MATCH_SECONDS;
+  multiplayerRespawnAt=0;
+  multiplayerShieldUntil=0;
+  multiplayerFinished=false;
+  remoteAliveLast=null;
+  remoteKills=0;
   if (remotePlayer) {
     scene.remove(remotePlayer);
     remotePlayer=null;
@@ -2606,13 +2861,16 @@ function togglePause() {
 
 function beginReload() {
   if (!started || paused || ended || reloading || activeCar) return;
+  if (multiplayer && hp<=0) return;
   if (!multiplayer && brPhase!=='ground') return;
 
   const slot=getActiveWeaponSlot();
   const def=getWeaponDef(slot);
   if(!slot || !def) return;
 
-  const available=inventory.ammo[def.ammoType] || 0;
+  const available=multiplayer
+    ? Infinity
+    : (inventory.ammo[def.ammoType] || 0);
   if(slot.magAmmo>=def.mag || available<=0) return;
 
   reloading=true;
@@ -2623,9 +2881,11 @@ function beginReload() {
     if(!reloading || ended) return;
     if(performance.now()-startedAt>=def.reloadMs){
       const need=def.mag-slot.magAmmo;
-      const take=Math.min(need,inventory.ammo[def.ammoType]||0);
+      const take=multiplayer
+        ? need
+        : Math.min(need,inventory.ammo[def.ammoType]||0);
       slot.magAmmo+=take;
-      inventory.ammo[def.ammoType]-=take;
+      if(!multiplayer) inventory.ammo[def.ammoType]-=take;
       reloading=false;
       UI.reloadState.textContent='';
       syncLegacyAmmo();
@@ -2640,6 +2900,7 @@ function beginReload() {
 
 function shoot() {
   if (!started || paused || ended || reloading || activeCar) return;
+  if (multiplayer && hp<=0) return;
   if (!multiplayer && brPhase!=='ground') return;
   const slot=getActiveWeaponSlot();
   const weapon=getWeaponDef(slot);
@@ -2688,10 +2949,14 @@ function shoot() {
     end=hit.point.clone();
 
     if (multiplayer && hit.object.userData.remotePlayer) {
-      const headshot=hit.object===remotePlayer.children[1];
-      const amount=headshot ? weapon.damage*1.65 : weapon.damage;
-      window.Mini3DNet?.sendDamage(remoteUserId,amount);
-      showHitmarker();
+      if(remoteTarget.shielded){
+        showMessage('OPPONENT SHIELD',260);
+      }else{
+        const headshot=hit.object===remotePlayer.children[1];
+        const amount=headshot ? weapon.damage*1.65 : weapon.damage;
+        window.Mini3DNet?.sendDamage(remoteUserId,amount);
+        showHitmarker();
+      }
     } else {
       const bot=hit.object.userData.bot;
       const headshot=hit.object===bot.children[1];
@@ -2728,7 +2993,10 @@ function damagePlayer(amount) {
   const reduced=amount*(1-THREE.MathUtils.clamp(inventory.armor,0,60)/100);
   hp = Math.max(0,hp-reduced);
   updateHud();
-  if(hp<=0) endMatch(false);
+  if(hp<=0){
+    if(multiplayer) handleOneVOneDeath();
+    else endMatch(false);
+  }
 }
 
 function spawnTracer(a,b,color) {
@@ -2752,6 +3020,8 @@ function updateTracers(dt) {
 }
 
 function updatePlayer(dt) {
+  if(multiplayer && hp<=0) return;
+
   let mx=0,mz=0;
   if(keys.has('KeyA')) mx-=1;
   if(keys.has('KeyD')) mx+=1;
@@ -2996,7 +3266,7 @@ function updateHud() {
 
   UI.hp.textContent=Math.ceil(hp);
   UI.ammo.textContent=ammo;
-  UI.reserve.textContent=reserve;
+  UI.reserve.textContent=Number.isFinite(reserve)?reserve:'∞';
   UI.kills.textContent=kills;
   UI.alive.textContent=multiplayer
     ? ((hp>0?1:0)+(remotePlayer?.visible?1:0))
@@ -3023,7 +3293,7 @@ function updateHud() {
       bags[index].classList.toggle('active',index===activeWeaponSlot);
       bags[index].querySelector('strong').textContent=name;
       bags[index].querySelector('small').textContent=weaponDef
-        ? weaponSlot.magAmmo+'/'+(inventory.ammo[weaponDef.ammoType]||0)+' · '+weaponDef.ammoType
+        ? weaponSlot.magAmmo+'/'+(multiplayer?'∞':(inventory.ammo[weaponDef.ammoType]||0))+' · '+weaponDef.ammoType
         : '—';
     }
   });
@@ -3031,7 +3301,7 @@ function updateHud() {
   if(UI.armorValue) UI.armorValue.textContent=inventory.armor+'%';
   if(UI.bandageValue) UI.bandageValue.textContent=inventory.bandage;
   if(UI.backpackCapacity) UI.backpackCapacity.textContent=backpackUsed()+' / '+BACKPACK_MAX;
-  if(UI.ammo556Value) UI.ammo556Value.textContent=inventory.ammo['5.56']||0;
+  if(UI.ammo556Value) UI.ammo556Value.textContent=multiplayer?'∞':(inventory.ammo['5.56']||0);
   if(UI.ammo9Value) UI.ammo9Value.textContent=inventory.ammo['9mm']||0;
 }
 
@@ -3138,10 +3408,12 @@ function animate() {
 
     if(multiplayer){
       brPhase='ground';
-      updatePlayer(dt);
-      updateRemotePlayer(dt);
-      sendMultiplayerState();
-      UI.zoneInfo.textContent='1V1 · ROOM ' + multiplayerRoom;
+      updateOneVOneMatch(dt);
+      if(!multiplayerFinished){
+        updatePlayer(dt);
+        updateRemotePlayer(dt);
+        sendMultiplayerState();
+      }
     } else {
       if(brPhase==='plane' || brPhase==='falling' || brPhase==='parachute'){
         updateFlight(dt);
