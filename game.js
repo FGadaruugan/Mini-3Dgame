@@ -3138,11 +3138,10 @@ function animate() {
 
     if(multiplayer){
       brPhase='ground';
-      zoneElapsed+=dt;
       updatePlayer(dt);
       updateRemotePlayer(dt);
       sendMultiplayerState();
-      updateZone(dt);
+      UI.zoneInfo.textContent='1V1 · ROOM ' + multiplayerRoom;
     } else {
       if(brPhase==='plane' || brPhase==='falling' || brPhase==='parachute'){
         updateFlight(dt);
