@@ -54,7 +54,7 @@ const ui = {
 };
 
 function getLocalStats() {
-  const raw=window.Mini3DS2?.getState?.()?.stats || {};
+  const raw=window.Mini3DProfileStats?.getState?.() || {};
   return {
     matches:Math.max(0,Number(raw.matches)||0),
     wins:Math.max(0,Number(raw.wins)||0),
