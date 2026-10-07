@@ -100,6 +100,17 @@ let remotePlayer = null;
 let remoteUserId = null;
 let remoteTarget = { x:0, y:0, z:0, yaw:0, hp:100 };
 let lastNetStateSent = 0;
+
+let battleRoyaleWorldObjects = [];
+let battleRoyaleColliders = [];
+let oneVOneWorld = null;
+let oneVOneOccluders = [];
+let oneVOneSpawns = {
+  host:{position:[0,0,52],yaw:Math.PI},
+  guest:{position:[0,0,-52],yaw:0}
+};
+let activeMapHalf = GAME.mapHalf;
+
 const keys = new Set();
 const raycaster = new THREE.Raycaster();
 const tmpV = new THREE.Vector3();
@@ -929,6 +940,12 @@ function init() {
 
   clock = new THREE.Clock();
   buildWorld();
+
+  // Everything created by buildWorld() belongs to the Battle Royale map.
+  // Lobby/player objects are created afterwards and remain independent.
+  battleRoyaleWorldObjects=[...scene.children];
+  battleRoyaleColliders=colliders.map(c=>({...c}));
+
   createPlayer();
   createLobbyStage();
   applyControlLayout();
@@ -941,6 +958,223 @@ function init() {
   showLobby();
   updateHud();
   animate();
+}
+
+
+function setBattleRoyaleWorldVisible(visible) {
+  battleRoyaleWorldObjects.forEach(object=>{
+    object.visible=visible;
+  });
+}
+
+function disposeObjectTree(root) {
+  root?.traverse?.(child=>{
+    child.geometry?.dispose?.();
+    if(child.material){
+      const materials=Array.isArray(child.material)?child.material:[child.material];
+      materials.forEach(material=>material?.dispose?.());
+    }
+  });
+}
+
+function clearOneVOneWorld({restoreBattleRoyale=true}={}) {
+  if(oneVOneWorld){
+    disposeObjectTree(oneVOneWorld);
+    scene.remove(oneVOneWorld);
+    oneVOneWorld=null;
+  }
+
+  oneVOneOccluders=[];
+  activeMapHalf=GAME.mapHalf;
+
+  if(restoreBattleRoyale){
+    colliders=battleRoyaleColliders.map(c=>({...c}));
+    setBattleRoyaleWorldVisible(true);
+    scene.background=new THREE.Color(0x8fb6d8);
+    scene.fog=new THREE.Fog(0x8fb6d8,110,520);
+  }
+}
+
+function addOneVOneBoxCollider(data) {
+  const size=Array.isArray(data.size)?data.size:[6,4,6];
+  const scale=Array.isArray(data.scale)?data.scale:[1,1,1];
+  const rotation=Array.isArray(data.rotation)?data.rotation:[0,0,0];
+  const position=Array.isArray(data.position)?data.position:[0,0,0];
+
+  const width=Math.abs((Number(size[0])||6)*(Number(scale[0])||1));
+  const depth=Math.abs((Number(size[2])||6)*(Number(scale[2])||1));
+  const yaw=Number(rotation[1])||0;
+  const c=Math.abs(Math.cos(yaw));
+  const sn=Math.abs(Math.sin(yaw));
+  const halfX=(width*c+depth*sn)/2+.55;
+  const halfZ=(width*sn+depth*c)/2+.55;
+  const x=Number(position[0])||0;
+  const z=Number(position[2])||0;
+
+  colliders.push({
+    minX:x-halfX,
+    maxX:x+halfX,
+    minZ:z-halfZ,
+    maxZ:z+halfZ
+  });
+}
+
+function createOneVOneTree(data,parent) {
+  const group=new THREE.Group();
+  const trunk=new THREE.Mesh(
+    new THREE.CylinderGeometry(.65,.85,5,8),
+    new THREE.MeshStandardMaterial({color:0x6e4d2f,roughness:.9})
+  );
+  trunk.position.y=2.5;
+  trunk.castShadow=true;
+  trunk.receiveShadow=true;
+  group.add(trunk);
+
+  const crown=new THREE.Mesh(
+    new THREE.ConeGeometry(3.6,8,9),
+    new THREE.MeshStandardMaterial({color:data.color||0x2f633a,roughness:.88})
+  );
+  crown.position.y=8;
+  crown.castShadow=true;
+  group.add(crown);
+
+  group.position.fromArray(Array.isArray(data.position)?data.position:[0,0,0]);
+  group.rotation.set(...(Array.isArray(data.rotation)?data.rotation:[0,0,0]));
+  group.scale.fromArray(Array.isArray(data.scale)?data.scale:[1,1,1]);
+  parent.add(group);
+  oneVOneOccluders.push(trunk,crown);
+
+  const radius=1.1*Math.max(Math.abs(group.scale.x),Math.abs(group.scale.z));
+  colliders.push({
+    minX:group.position.x-radius,
+    maxX:group.position.x+radius,
+    minZ:group.position.z-radius,
+    maxZ:group.position.z+radius
+  });
+}
+
+function createFallbackOneVOneMap() {
+  return {
+    version:1,
+    name:'1V1 Arena',
+    mapHalf:70,
+    groundColor:'#536b47',
+    objects:[
+      {id:'spawn-a',type:'spawnA',position:[0,0,52],rotation:[0,Math.PI,0],scale:[1,1,1],color:'#62c8ff'},
+      {id:'spawn-b',type:'spawnB',position:[0,0,-52],rotation:[0,0,0],scale:[1,1,1],color:'#ff7a72'},
+      {id:'boundary-n',type:'box',position:[0,2,-68],rotation:[0,0,0],scale:[1,1,1],size:[136,4,4],color:'#3b4650'},
+      {id:'boundary-s',type:'box',position:[0,2,68],rotation:[0,0,0],scale:[1,1,1],size:[136,4,4],color:'#3b4650'},
+      {id:'boundary-w',type:'box',position:[-68,2,0],rotation:[0,0,0],scale:[1,1,1],size:[4,4,136],color:'#3b4650'},
+      {id:'boundary-e',type:'box',position:[68,2,0],rotation:[0,0,0],scale:[1,1,1],size:[4,4,136],color:'#3b4650'}
+    ]
+  };
+}
+
+async function activateOneVOneMap() {
+  clearOneVOneWorld({restoreBattleRoyale:false});
+  setBattleRoyaleWorldVisible(false);
+  colliders=[];
+  oneVOneOccluders=[];
+
+  let mapData=null;
+  try{
+    const module=await import('./onevone-map.js?v=20261007-1v1-map1');
+    mapData=module.ONEVONE_MAP;
+  }catch(error){
+    console.warn('1V1 map module failed; using safe fallback arena.',error);
+  }
+
+  if(!mapData || !Array.isArray(mapData.objects)){
+    mapData=createFallbackOneVOneMap();
+  }
+
+  activeMapHalf=THREE.MathUtils.clamp(Number(mapData.mapHalf)||70,30,220);
+  oneVOneWorld=new THREE.Group();
+  oneVOneWorld.name='ONEVONE_WORLD';
+  scene.add(oneVOneWorld);
+
+  scene.background=new THREE.Color(0x7893a7);
+  scene.fog=new THREE.Fog(0x7893a7,85,260);
+
+  const hemi=new THREE.HemisphereLight(0xdcecff,0x343b2b,2.15);
+  oneVOneWorld.add(hemi);
+
+  const sun=new THREE.DirectionalLight(0xffffff,2.3);
+  sun.position.set(36,64,28);
+  sun.castShadow=true;
+  sun.shadow.mapSize.set(1024,1024);
+  sun.shadow.camera.left=-90;
+  sun.shadow.camera.right=90;
+  sun.shadow.camera.top=90;
+  sun.shadow.camera.bottom=-90;
+  oneVOneWorld.add(sun);
+
+  const groundColor=/^#[0-9a-f]{6}$/i.test(mapData.groundColor||'')
+    ? mapData.groundColor
+    : '#536b47';
+
+  const arenaGround=new THREE.Mesh(
+    new THREE.PlaneGeometry(activeMapHalf*2,activeMapHalf*2),
+    new THREE.MeshStandardMaterial({color:groundColor,roughness:1})
+  );
+  arenaGround.rotation.x=-Math.PI/2;
+  arenaGround.receiveShadow=true;
+  arenaGround.userData.oneVOneEnvironment=true;
+  oneVOneWorld.add(arenaGround);
+
+  const spawns={host:null,guest:null};
+
+  for(const raw of mapData.objects){
+    if(!raw || !raw.type) continue;
+
+    if(raw.type==='spawnA' || raw.type==='spawnB'){
+      const position=Array.isArray(raw.position)?raw.position:[0,0,0];
+      const rotation=Array.isArray(raw.rotation)?raw.rotation:[0,0,0];
+      const spawn={
+        position:[
+          THREE.MathUtils.clamp(Number(position[0])||0,-activeMapHalf+4,activeMapHalf-4),
+          Math.max(0,Number(position[1])||0),
+          THREE.MathUtils.clamp(Number(position[2])||0,-activeMapHalf+4,activeMapHalf-4)
+        ],
+        yaw:Number(rotation[1])||0
+      };
+      if(raw.type==='spawnA' && !spawns.host) spawns.host=spawn;
+      if(raw.type==='spawnB' && !spawns.guest) spawns.guest=spawn;
+      continue;
+    }
+
+    if(raw.type==='box'){
+      const size=Array.isArray(raw.size)?raw.size:[6,4,6];
+      const color=/^#[0-9a-f]{6}$/i.test(raw.color||'')?raw.color:'#7a838b';
+      const mesh=new THREE.Mesh(
+        new THREE.BoxGeometry(
+          Math.max(.5,Number(size[0])||6),
+          Math.max(.5,Number(size[1])||4),
+          Math.max(.5,Number(size[2])||6)
+        ),
+        new THREE.MeshStandardMaterial({color,roughness:.82})
+      );
+      mesh.position.fromArray(Array.isArray(raw.position)?raw.position:[0,0,0]);
+      mesh.rotation.set(...(Array.isArray(raw.rotation)?raw.rotation:[0,0,0]));
+      mesh.scale.fromArray(Array.isArray(raw.scale)?raw.scale:[1,1,1]);
+      mesh.castShadow=true;
+      mesh.receiveShadow=true;
+      mesh.userData.oneVOneEnvironment=true;
+      oneVOneWorld.add(mesh);
+      oneVOneOccluders.push(mesh);
+      addOneVOneBoxCollider(raw);
+      continue;
+    }
+
+    if(raw.type==='tree'){
+      createOneVOneTree(raw,oneVOneWorld);
+    }
+  }
+
+  oneVOneSpawns={
+    host:spawns.host||{position:[0,0,Math.min(52,activeMapHalf-12)],yaw:Math.PI},
+    guest:spawns.guest||{position:[0,0,-Math.min(52,activeMapHalf-12)],yaw:0}
+  };
 }
 
 function createRemotePlayer() {
@@ -981,7 +1215,7 @@ function createRemotePlayer() {
   remotePlayer=group;
 }
 
-function startMultiplayerMatch(detail) {
+async function startMultiplayerMatch(detail) {
   multiplayer=true;
   multiplayerRoom=detail.roomCode;
   multiplayerRole=detail.role;
@@ -993,19 +1227,17 @@ function startMultiplayerMatch(detail) {
   bots=[];
   brPhase='ground';
 
+  showMessage('1V1 · LOADING ARENA',100000);
+  await activateOneVOneMap();
+
   hp=GAME.maxHp;
   kills=0;
   elapsed=0;
   spawnProtection=2;
 
-  if (detail.role==='host') {
-    player.position.set(0,0,58);
-    yaw=Math.PI;
-  } else {
-    player.position.set(0,0,-58);
-    yaw=0;
-  }
-
+  const spawn=detail.role==='host'?oneVOneSpawns.host:oneVOneSpawns.guest;
+  player.position.fromArray(spawn.position);
+  yaw=spawn.yaw;
   bodyYaw=wrapAngle(yaw+Math.PI);
   player.rotation.y=bodyYaw;
 
@@ -1018,8 +1250,8 @@ function startMultiplayerMatch(detail) {
   document.getElementById('profileOverlay')?.classList.add('hidden');
   UI.endOverlay.classList.add('hidden');
   setGameUiVisible(true);
-  UI.zoneInfo.textContent='1V1 · ROOM ' + multiplayerRoom;
-  showMessage('1V1 · CONNECTING OPPONENT',1200);
+  UI.zoneInfo.textContent='1V1 · ' + (detail.role==='host'?'HOST':'GUEST') + ' · ROOM ' + multiplayerRoom;
+  showMessage('1V1 · ARENA READY',900);
   clock.getDelta();
 }
 
@@ -1048,7 +1280,11 @@ function sendMultiplayerState() {
 }
 
 document.addEventListener('mini3d:room-join',event=>{
-  startMultiplayerMatch(event.detail);
+  startMultiplayerMatch(event.detail).catch(error=>{
+    console.error('1V1 start failed',error);
+    showMessage('1V1 MAP ERROR',2000);
+    showLobby();
+  });
 });
 
 document.addEventListener('mini3d:room-presence',event=>{
@@ -1719,6 +1955,7 @@ function setGameUiVisible(visible) {
 
 function showLobby() {
   clearMatchCountdown();
+  clearOneVOneWorld();
   if (multiplayer) window.Mini3DNet?.leave?.();
   multiplayer=false;
   multiplayerRoom=null;
@@ -1828,6 +2065,7 @@ document.addEventListener('webkitfullscreenchange', () => {
 });
 
 async function startMatch() {
+  clearOneVOneWorld();
   document.getElementById('lobbyDrawer')?.classList.remove('open');
   document.getElementById('drawerBackdrop')?.classList.remove('open');
   document.getElementById('drawerToggle')?.classList.remove('open');
@@ -2430,7 +2668,10 @@ function shoot() {
     });
   }
 
-  const hits=raycaster.intersectObjects(liveMeshes,false);
+  const shotTargets=multiplayer
+    ? [...liveMeshes,...oneVOneOccluders]
+    : liveMeshes;
+  const hits=raycaster.intersectObjects(shotTargets,false);
   let end=origin.clone().addScaledVector(dir,80);
 
   if(hits.length){
@@ -2559,8 +2800,8 @@ function lerpAngle(from,to,t) {
 
 function moveWithCollision(obj, delta, radius) {
   const p=obj.position;
-  const nx=THREE.MathUtils.clamp(p.x+delta.x,-GAME.mapHalf+2,GAME.mapHalf-2);
-  const nz=THREE.MathUtils.clamp(p.z+delta.z,-GAME.mapHalf+2,GAME.mapHalf-2);
+  const nx=THREE.MathUtils.clamp(p.x+delta.x,-activeMapHalf+2,activeMapHalf-2);
+  const nz=THREE.MathUtils.clamp(p.z+delta.z,-activeMapHalf+2,activeMapHalf-2);
   if(!blocked(nx,p.z,radius)) p.x=nx;
   if(!blocked(p.x,nz,radius)) p.z=nz;
 }
@@ -2801,17 +3042,19 @@ function drawMinimap() {
   const h=UI.minimap.height;
   const cx=w/2;
   const cy=h/2;
-  const scale=(w*.44)/GAME.mapHalf;
+  const scale=(w*.44)/activeMapHalf;
   mm.clearRect(0,0,w,h);
   mm.fillStyle='rgba(7,12,17,.86)';
   mm.fillRect(0,0,w,h);
 
-  const r=currentZoneRadius()*scale;
-  mm.strokeStyle='#55d7ff';
-  mm.lineWidth=3;
-  mm.beginPath();
-  mm.arc(cx,cy,r,0,Math.PI*2);
-  mm.stroke();
+  if(!multiplayer){
+    const r=currentZoneRadius()*scale;
+    mm.strokeStyle='#55d7ff';
+    mm.lineWidth=3;
+    mm.beginPath();
+    mm.arc(cx,cy,r,0,Math.PI*2);
+    mm.stroke();
+  }
 
   mm.fillStyle='#ffffff';
   const marker=(brPhase==='plane' && plane) ? plane.position : player.position;
@@ -2826,12 +3069,20 @@ function drawMinimap() {
   mm.stroke();
 
   mm.fillStyle='#ff5b5b';
-  bots.forEach(b=>{
-    if(!b.userData.alive || (!multiplayer && !b.userData.landed)) return;
-    mm.beginPath();
-    mm.arc(cx+b.position.x*scale,cy+b.position.z*scale,3.4,0,Math.PI*2);
-    mm.fill();
-  });
+  if(multiplayer){
+    if(remotePlayer?.visible){
+      mm.beginPath();
+      mm.arc(cx+remotePlayer.position.x*scale,cy+remotePlayer.position.z*scale,3.8,0,Math.PI*2);
+      mm.fill();
+    }
+  }else{
+    bots.forEach(b=>{
+      if(!b.userData.alive || !b.userData.landed) return;
+      mm.beginPath();
+      mm.arc(cx+b.position.x*scale,cy+b.position.z*scale,3.4,0,Math.PI*2);
+      mm.fill();
+    });
+  }
 
   if(!multiplayer){
     mm.fillStyle='#68c7ff';
