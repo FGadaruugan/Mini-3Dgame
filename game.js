@@ -1078,7 +1078,7 @@ async function activateOneVOneMap() {
 
   let mapData=null;
   try{
-    const module=await import('./onevone-map.js?v=20261007-1v1-map1');
+    const module=await import('./onevone-map.js?matchMap='+Date.now());
     mapData=module.ONEVONE_MAP;
   }catch(error){
     console.warn('1V1 map module failed; using safe fallback arena.',error);
@@ -1314,6 +1314,10 @@ document.addEventListener('mini3d:net-state',event=>{
     remotePlayer.userData.userId=remoteUserId;
     remotePlayer.userData.hp=remoteTarget.hp;
     remotePlayer.visible=event.detail.alive!==false;
+  }
+
+  if(event.detail.alive===false && !ended){
+    endMatch(true);
   }
 });
 
@@ -2434,6 +2438,11 @@ function bindInputs() {
   UI.startBtn.addEventListener('click', startMatch);
   UI.mobileStartBtn?.addEventListener('click', startMatch);
   UI.restartBtn.addEventListener('click', () => {
+    if(multiplayer){
+      showLobby();
+      return;
+    }
+
     resetMatch();
     started=true;
     paused=true;
@@ -2989,7 +2998,9 @@ function updateHud() {
   UI.ammo.textContent=ammo;
   UI.reserve.textContent=reserve;
   UI.kills.textContent=kills;
-  UI.alive.textContent=1+bots.filter(b=>b.userData.alive).length;
+  UI.alive.textContent=multiplayer
+    ? ((hp>0?1:0)+(remotePlayer?.visible?1:0))
+    : 1+bots.filter(b=>b.userData.alive).length;
   UI.hp.parentElement.style.outline=hp<30?'1px solid rgba(255,80,80,.9)':'';
 
   const slot=getActiveWeaponSlot();
