@@ -188,7 +188,7 @@
   }
 
   function missionRows(){
-    const s=state.stats;
+    const s=playerStats;
     const missions=[
       {id:'play-1',title:'PLAY ONE MATCH',value:s.matches,max:1,reward:50},
       {id:'kills-10',title:'GET 10 KILLS',value:s.kills,max:10,reward:100},
