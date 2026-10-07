@@ -188,28 +188,19 @@
   }
 
   function renderSeason(){
-    const s=state.stats;
-    const tiers=[
-      {id:'rookie',name:'ROOKIE DROP',need:1,value:s.matches,reward:75},
-      {id:'hunter',name:'HUNTER DROP',need:10,value:s.kills,reward:125},
-      {id:'winner',name:'WINNER DROP',need:1,value:s.wins,reward:200}
-    ];
-
     return '<section class="s2-hero-card">'+
-      '<div><small>SEASON 02</small><h2>FRONTLINE</h2><p>Battle Royale + 1V1 Arena progression</p></div>'+
-      '<div class="s2-stat-strip"><span><b>'+s.matches+'</b>MATCHES</span><span><b>'+s.kills+'</b>KILLS</span><span><b>'+s.wins+'</b>WINS</span></div>'+
+      '<div><small>SEASON 02</small><h2>FRONTLINE</h2><p>Season 2 focuses on the dedicated 1V1 Arena, lobby systems, Studio map editing and polish.</p></div>'+
+      '<div class="s2-season-badge"><span>S2</span><b>FRONTLINE</b></div>'+
     '</section>'+
-    '<h3 class="s2-section-title">MISSIONS</h3>'+missionRows()+
-    '<h3 class="s2-section-title">SEASON DROPS</h3>'+
-    '<div class="s2-grid">'+tiers.map(t=>{
-      const ready=t.value>=t.need;
-      const claimed=state.claimedSeason.includes(t.id);
-      return '<article class="s2-tile '+(ready?'ready':'')+'">'+
-        '<small>S2 REWARD</small><strong>'+t.name+'</strong>'+
-        '<p>Requirement: '+Math.min(t.value,t.need)+' / '+t.need+'</p>'+
-        (claimed?'<b class="s2-state good">CLAIMED</b>':ready?button('CLAIM +'+t.reward,'claim-season:'+t.id):'<b class="s2-state">LOCKED</b>')+
-      '</article>';
-    }).join('')+'</div>';
+    '<h3 class="s2-section-title">SEASON CONTENT</h3>'+
+    '<div class="s2-grid">'+
+      '<article class="s2-tile selected"><small>NEW MODE</small><strong>1V1 ARENA</strong><p>10 minutes · first to 40 kills · LMG-5 · 3s respawn · 3s shield.</p>'+button('OPEN MODES','open-modes')+'</article>'+
+      '<article class="s2-tile"><small>MAP</small><strong>DEDICATED ARENA</strong><p>1V1 uses its own map and no longer loads the Battle Royale world.</p></article>'+
+      '<article class="s2-tile"><small>CREATOR</small><strong>STUDIO SCENE</strong><p>Authorized creators can build the 1V1 Arena separately from Green Valley.</p>'+button('CREATOR ACCESS','open-create')+'</article>'+
+      '<article class="s2-tile"><small>CUSTOMIZATION</small><strong>THEMES & CARDS</strong><p>Season 2 lobby themes, player cards and local cosmetics are managed from the bottom menu.</p>'+button('OPEN THEME','open-theme')+'</article>'+
+      '<article class="s2-tile"><small>WORKSHOP</small><strong>WEAPON SHOWCASE</strong><p>Inspect S2 weapon information and choose a showcase weapon for your lobby profile.</p>'+button('OPEN WORKSHOP','open-workshop')+'</article>'+
+      '<article class="s2-tile"><small>SOCIAL</small><strong>PROFILE / FRIENDS</strong><p>Player statistics belong to Profile. Friends and invitations use a separate Friends screen.</p>'+button('OPEN PROFILE','open-profile')+'</article>'+
+    '</div>';
   }
 
   function renderWorkshop(){
@@ -278,7 +269,7 @@
 
   function renderSecurity(){
     return '<div class="s2-grid">'+
-      '<article class="s2-tile"><small>LOCAL DATA</small><strong>S2 SAVE</strong><p>Theme, cards, region, rewards and local stats are stored in this browser.</p>'+button('EXPORT SUMMARY','copy-diagnostics')+'</article>'+
+      '<article class="s2-tile"><small>LOCAL DATA</small><strong>S2 SAVE</strong><p>Theme, cards, region and rewards are stored locally. Match statistics are displayed in Profile.</p>'+button('EXPORT SUMMARY','copy-diagnostics')+'</article>'+
       '<article class="s2-tile"><small>RESET</small><strong>LOCAL S2 DATA</strong><p>Clears only S2 hub data on this device. Game settings and account data remain separate.</p>'+button('RESET S2 DATA','reset-s2','danger')+'</article>'+
     '</div>';
   }
@@ -346,10 +337,10 @@
       'Mini 3D Battle · Season 2',
       'Theme: '+state.theme,
       'Region: '+state.region,
-      'Matches: '+state.stats.matches,
-      'Wins: '+state.stats.wins,
-      'Kills: '+state.stats.kills,
-      'Rank: '+rankName(),
+      'Profile Matches: '+state.stats.matches,
+      'Profile Wins: '+state.stats.wins,
+      'Profile Kills: '+state.stats.kills,
+      'Profile Title: '+rankName(),
       'Browser: '+navigator.userAgent
     ].join('\n');
   }
@@ -439,6 +430,16 @@
   }
 
   function open(page='season'){
+    if(page==='rank' || page==='profile'){
+      window.Mini3DProfile?.openProfile?.();
+      return;
+    }
+
+    if(page==='friends'){
+      window.Mini3DProfile?.openFriends?.();
+      return;
+    }
+
     if(!overlay()) return;
     renderPage(page);
     overlay().classList.remove('hidden');
@@ -591,6 +592,32 @@
       return;
     }
 
+    if(action==='open-modes'){
+      renderPage('modes');
+      return;
+    }
+
+    if(action==='open-create'){
+      renderPage('create');
+      return;
+    }
+
+    if(action==='open-theme'){
+      renderPage('theme');
+      return;
+    }
+
+    if(action==='open-workshop'){
+      renderPage('workshop');
+      return;
+    }
+
+    if(action==='open-profile'){
+      close();
+      window.Mini3DProfile?.openProfile?.();
+      return;
+    }
+
     if(action==='choose-solo'){
       close();
       document.querySelector('.mode-card[data-mode="solo"]')?.click();
@@ -599,7 +626,7 @@
 
     if(action==='open-friends'){
       close();
-      document.querySelector('[data-shortcut="friends"]')?.click();
+      window.Mini3DProfile?.openFriends?.();
       return;
     }
 
@@ -635,6 +662,9 @@
 
     state.credits+=10+Math.min(40,k);
     save();
+    document.dispatchEvent(new CustomEvent('mini3d:profile-stats-updated',{
+      detail:{...state.stats}
+    }));
   }
 
   function bind(){
