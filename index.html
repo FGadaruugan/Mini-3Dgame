@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
   <meta name="theme-color" content="#111827" />
   <title>Mini 3D Battle</title>
-  <link rel="stylesheet" href="./style.css?v=20261007-s2-title1" />
+  <link rel="stylesheet" href="./style.css?v=20261007-settings-ga1" />
   <link rel="stylesheet" href="./ui-layout.css?v=20261004-gui1" />
 </head>
 <body>
@@ -487,6 +487,95 @@
                 <button id="saveControlLayout" class="settings-primary">SAVE</button>
               </div>
             </section>
+
+            <section id="settingsGraphicsPage" class="settings-page">
+              <div class="settings-page-head">
+                <div>
+                  <small>DISPLAY</small>
+                  <h2>GRAPHICS</h2>
+                </div>
+                <p>Balance visual quality, battery use and frame rate.</p>
+              </div>
+
+              <div class="graphics-preset-row" role="group" aria-label="Graphics quality preset">
+                <button class="graphics-preset" data-graphics-preset="low">LOW</button>
+                <button class="graphics-preset active" data-graphics-preset="medium">MEDIUM</button>
+                <button class="graphics-preset" data-graphics-preset="high">HIGH</button>
+                <button class="graphics-preset" data-graphics-preset="custom">CUSTOM</button>
+              </div>
+
+              <div class="graphics-list">
+                <label class="graphics-row">
+                  <span><strong>Shadows</strong><small>Dynamic character and world shadows</small></span>
+                  <input id="graphicsShadows" type="checkbox" checked />
+                  <b id="graphicsShadowsValue">ON</b>
+                </label>
+
+                <label class="graphics-row">
+                  <span><strong>Render Distance</strong><small>How far the 3D world is rendered</small></span>
+                  <input id="graphicsDistance" type="range" min="240" max="800" step="40" value="480" />
+                  <b id="graphicsDistanceValue">480m</b>
+                </label>
+
+                <label class="graphics-row">
+                  <span><strong>Effects Quality</strong><small>Tracer and visual effect detail</small></span>
+                  <select id="graphicsEffects">
+                    <option value="low">LOW</option>
+                    <option value="medium" selected>MEDIUM</option>
+                    <option value="high">HIGH</option>
+                  </select>
+                  <b id="graphicsEffectsValue">MEDIUM</b>
+                </label>
+
+                <label class="graphics-row">
+                  <span><strong>FPS Limit</strong><small>Maximum game render rate</small></span>
+                  <select id="graphicsFps">
+                    <option value="30">30 FPS</option>
+                    <option value="60" selected>60 FPS</option>
+                    <option value="120">120 FPS</option>
+                    <option value="0">UNLIMITED</option>
+                  </select>
+                  <b id="graphicsFpsValue">60 FPS</b>
+                </label>
+              </div>
+
+              <div class="settings-actions">
+                <button id="resetGraphics" class="settings-secondary">RESET</button>
+                <div class="settings-save-note">Changes save and apply automatically</div>
+              </div>
+            </section>
+
+            <section id="settingsAccountPage" class="settings-page">
+              <div class="settings-page-head">
+                <div>
+                  <small>PLAYER</small>
+                  <h2>ACCOUNT</h2>
+                </div>
+                <p>Manage your game identity and account session.</p>
+              </div>
+
+              <div class="settings-account-card">
+                <div id="settingsAccountAvatar" class="settings-account-avatar">P1</div>
+                <div class="settings-account-copy">
+                  <small>PLAYER</small>
+                  <strong id="settingsAccountName">Guest Player</strong>
+                  <span id="settingsAccountId">PLAYER ID · --------</span>
+                </div>
+                <div id="settingsAccountStatus" class="settings-account-status">NOT SIGNED IN</div>
+              </div>
+
+              <div class="settings-account-actions">
+                <button id="settingsOpenProfile" class="settings-account-action primary">OPEN PROFILE</button>
+                <button id="settingsOpenFriends" class="settings-account-action">OPEN FRIENDS</button>
+                <button id="settingsCopyPlayerId" class="settings-account-action">COPY PLAYER ID</button>
+                <button id="settingsAccountAuth" class="settings-account-action">SIGN IN WITH GOOGLE</button>
+              </div>
+
+              <div class="settings-account-note">
+                <strong>PROFILE AND FRIENDS ARE SEPARATE</strong>
+                <span>Profile contains career statistics. Friends contains social requests, online status and 1V1 invites.</span>
+              </div>
+            </section>
           </div>
 
           <nav class="settings-nav" aria-label="Settings categories">
@@ -496,6 +585,12 @@
             </button>
             <button class="settings-nav-item" data-settings-page="controls">
               <span>✣</span><strong>CUSTOMIZE BUTTONS</strong>
+            </button>
+            <button class="settings-nav-item" data-settings-page="graphics">
+              <span>▦</span><strong>GRAPHICS</strong>
+            </button>
+            <button class="settings-nav-item" data-settings-page="account">
+              <span>◉</span><strong>ACCOUNT</strong>
             </button>
           </nav>
         </div>
@@ -564,8 +659,8 @@
 
   <script src="./studio-gui-test.js?v=20261004-gui1"></script>
   <script src="./lobby-hub.js?v=20261007-s2-title1"></script>
-  <script type="module" src="./game.js?v=20261007-profile-split3"></script>
-  <script type="module" src="./profile.js?v=20261007-s2-title1"></script>
+  <script type="module" src="./game.js?v=20261007-settings-ga1"></script>
+  <script type="module" src="./profile.js?v=20261007-settings-ga1"></script>
   <script type="module" src="./studio-entry.js?v=20261004-gui1"></script>
 </body>
 </html>
