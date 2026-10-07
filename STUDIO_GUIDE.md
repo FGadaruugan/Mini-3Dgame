@@ -181,3 +181,31 @@ When Studio opens the game with `?studioTest=1`, the isolated `studio-entry.js` 
 Normal game visits do not read the GUI draft.
 
 This keeps the stable game runtime independent from the Studio editor.
+
+
+## Dedicated 1V1 map
+
+Studio Scene now has two map profiles:
+
+- **S1 · GREEN VALLEY** → exports `scene-data.js`
+- **1V1 · ARENA** → exports `onevone-map.js`
+
+For the 1V1 arena you can edit boxes, trees, map half-size, ground color, and the two required spawn markers:
+
+- **SPAWN A** = host spawn
+- **SPAWN B** = guest spawn
+
+The Scene validator warns unless there is exactly one A spawn and one B spawn.
+
+Workflow:
+
+1. Open **SCENE**.
+2. Select **1V1 · ARENA**.
+3. Build the arena.
+4. Press **SAVE**.
+5. Press **COPY CURRENT**.
+6. Replace `onevone-map.js` with the copied module.
+
+The public game does not read the local Studio draft automatically. The committed `onevone-map.js` is loaded when a 1V1 room starts.
+
+During 1V1 the Battle Royale map is hidden and its colliders are disabled. Returning to Lobby restores the Battle Royale map.
