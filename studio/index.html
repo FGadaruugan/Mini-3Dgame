@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
   <meta name="theme-color" content="#0b1017" />
   <title>Mini 3D Studio</title>
-  <link rel="stylesheet" href="./studio.css?v=20261004-gui2" />
+  <link rel="stylesheet" href="./studio.css?v=20261007-1v1scene1" />
   <script type="importmap">
     {
       "imports": {
@@ -81,6 +81,25 @@
         </div>
 
         <div id="sceneExplorer" class="hidden">
+          <div class="scene-map-picker">
+            <label>MAP
+              <select id="sceneMapSelect">
+                <option value="battleRoyale">S1 · GREEN VALLEY</option>
+                <option value="onevone">1V1 · ARENA</option>
+              </select>
+            </label>
+            <small id="sceneMapHint">Battle Royale world</small>
+          </div>
+
+          <div id="onevoneMapSettings" class="scene-map-settings hidden">
+            <label>HALF SIZE
+              <input id="sceneMapHalf" type="number" min="30" max="220" step="5" value="70" />
+            </label>
+            <label>GROUND
+              <input id="sceneGroundColor" type="color" value="#536b47" />
+            </label>
+          </div>
+
           <div class="explorer-search">
             <input id="sceneSearch" type="search" placeholder="Search objects…" />
           </div>
@@ -90,6 +109,8 @@
             <button id="addTreeBtn">+ TREE</button>
             <button id="addCarSpawnBtn">+ CAR SPAWN</button>
             <button id="addLootSpawnBtn">+ LOOT AREA</button>
+            <button id="addSpawnABtn" class="hidden">+ SPAWN A</button>
+            <button id="addSpawnBBtn" class="hidden">+ SPAWN B</button>
           </div>
 
           <div class="tree-title">SCENE OBJECTS <span id="sceneObjectCount">0</span></div>
@@ -406,6 +427,6 @@
     </div>
   </div>
 
-  <script type="module" src="./studio.js?v=20261004-gui2"></script>
+  <script type="module" src="./studio.js?v=20261007-1v1scene1"></script>
 </body>
 </html>
