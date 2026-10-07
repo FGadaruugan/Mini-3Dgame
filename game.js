@@ -1458,6 +1458,7 @@ async function startMultiplayerMatch(detail) {
   ended=false;
   UI.startOverlay.classList.add('hidden');
   document.getElementById('profileOverlay')?.classList.add('hidden');
+  document.getElementById('friendsOverlay')?.classList.add('hidden');
   UI.endOverlay.classList.add('hidden');
   setGameUiVisible(true);
   UI.zoneInfo.textContent='1V1 · 10:00 · KILLS 0-0';
@@ -2234,6 +2235,8 @@ function showLobby() {
   }
   document.exitPointerLock?.();
   document.getElementById('lobbyDrawer')?.classList.remove('open');
+  document.getElementById('profileOverlay')?.classList.add('hidden');
+  document.getElementById('friendsOverlay')?.classList.add('hidden');
   document.getElementById('drawerBackdrop')?.classList.remove('open');
   document.getElementById('drawerToggle')?.classList.remove('open');
   started=false;
