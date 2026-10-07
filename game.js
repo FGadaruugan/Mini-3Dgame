@@ -2510,17 +2510,25 @@ function closeSettings() {
 }
 
 function showSettingsPage(page) {
-  const isSensitivity = page === 'sensitivity';
-  document.getElementById('settingsSensitivityPage')?.classList.toggle('active', isSensitivity);
-  document.getElementById('settingsControlsPage')?.classList.toggle('active', !isSensitivity);
+  const validPages=['sensitivity','controls','graphics','account'];
+  const activePage=validPages.includes(page)?page:'sensitivity';
+  const pageIds={
+    sensitivity:'settingsSensitivityPage',
+    controls:'settingsControlsPage',
+    graphics:'settingsGraphicsPage',
+    account:'settingsAccountPage'
+  };
 
-  document.querySelectorAll('.settings-nav-item').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.settingsPage === page);
+  document.querySelectorAll('.settings-page').forEach(section=>{
+    section.classList.toggle('active',section.id===pageIds[activePage]);
   });
 
-  if (!isSensitivity) {
-    requestAnimationFrame(renderControlPreview);
-  }
+  document.querySelectorAll('.settings-nav-item').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.settingsPage === activePage);
+  });
+
+  if(activePage==='controls') requestAnimationFrame(renderControlPreview);
+  if(activePage==='account') syncAccountSettingsUi();
 }
 
 function syncSettingsUi() {
@@ -2540,6 +2548,31 @@ function syncSettingsUi() {
 
   syncSelectedControlEditor();
   renderControlPreview();
+
+  const graphics=userSettings.graphics || cloneDefaults().graphics;
+  document.querySelectorAll('.graphics-preset').forEach(btn=>{
+    btn.classList.toggle('active',btn.dataset.graphicsPreset===graphics.preset);
+  });
+
+  const shadows=document.getElementById('graphicsShadows');
+  const shadowsValue=document.getElementById('graphicsShadowsValue');
+  const distance=document.getElementById('graphicsDistance');
+  const distanceValue=document.getElementById('graphicsDistanceValue');
+  const effects=document.getElementById('graphicsEffects');
+  const effectsValue=document.getElementById('graphicsEffectsValue');
+  const fps=document.getElementById('graphicsFps');
+  const fpsValue=document.getElementById('graphicsFpsValue');
+
+  if(shadows) shadows.checked=Boolean(graphics.shadows);
+  if(shadowsValue) shadowsValue.textContent=graphics.shadows?'ON':'OFF';
+  if(distance) distance.value=graphics.renderDistance;
+  if(distanceValue) distanceValue.textContent=graphics.renderDistance+'m';
+  if(effects) effects.value=graphics.effects;
+  if(effectsValue) effectsValue.textContent=String(graphics.effects).toUpperCase();
+  if(fps) fps.value=String(graphics.fpsLimit);
+  if(fpsValue) fpsValue.textContent=graphics.fpsLimit===0?'UNLIMITED':graphics.fpsLimit+' FPS';
+
+  syncAccountSettingsUi();
 }
 
 function syncSelectedControlEditor() {
@@ -2689,6 +2722,83 @@ function bindSettingsUi() {
     }
   });
 }
+
+  document.querySelectorAll('.graphics-preset').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      if(btn.dataset.graphicsPreset==='custom') return;
+      setGraphicsPreset(btn.dataset.graphicsPreset);
+    });
+  });
+
+  document.getElementById('graphicsShadows')?.addEventListener('change',event=>{
+    markGraphicsCustom();
+    userSettings.graphics.shadows=Boolean(event.target.checked);
+    saveUserSettings();
+    applyGraphicsSettings();
+    syncSettingsUi();
+  });
+
+  document.getElementById('graphicsDistance')?.addEventListener('input',event=>{
+    markGraphicsCustom();
+    userSettings.graphics.renderDistance=Number(event.target.value);
+    saveUserSettings();
+    applyGraphicsSettings();
+    syncSettingsUi();
+  });
+
+  document.getElementById('graphicsEffects')?.addEventListener('change',event=>{
+    markGraphicsCustom();
+    userSettings.graphics.effects=event.target.value;
+    saveUserSettings();
+    applyGraphicsSettings();
+    syncSettingsUi();
+  });
+
+  document.getElementById('graphicsFps')?.addEventListener('change',event=>{
+    markGraphicsCustom();
+    userSettings.graphics.fpsLimit=Number(event.target.value);
+    saveUserSettings();
+    applyGraphicsSettings();
+    syncSettingsUi();
+  });
+
+  document.getElementById('resetGraphics')?.addEventListener('click',()=>{
+    userSettings.graphics={...cloneDefaults().graphics};
+    saveUserSettings();
+    applyGraphicsSettings();
+    syncSettingsUi();
+  });
+
+  document.getElementById('settingsOpenProfile')?.addEventListener('click',()=>{
+    closeSettings();
+    window.Mini3DProfile?.openProfile?.();
+  });
+
+  document.getElementById('settingsOpenFriends')?.addEventListener('click',()=>{
+    closeSettings();
+    window.Mini3DProfile?.openFriends?.();
+  });
+
+  document.getElementById('settingsCopyPlayerId')?.addEventListener('click',async()=>{
+    const copied=await window.Mini3DProfile?.copyPlayerId?.();
+    const toast=document.getElementById('lobbyTabToast');
+    if(toast){
+      toast.textContent=copied?'PLAYER ID COPIED':'PLAYER ID UNAVAILABLE';
+      toast.classList.remove('hidden');
+      clearTimeout(toast._hideTimer);
+      toast._hideTimer=setTimeout(()=>toast.classList.add('hidden'),900);
+    }
+  });
+
+  document.getElementById('settingsAccountAuth')?.addEventListener('click',async()=>{
+    const account=window.Mini3DProfile?.getAccountState?.();
+    if(account?.signedIn) await window.Mini3DProfile?.signOut?.();
+    else await window.Mini3DProfile?.signIn?.();
+    syncAccountSettingsUi();
+  });
+
+  document.addEventListener('mini3d:account-updated',syncAccountSettingsUi);
+
 
 function bindInputs() {
   addEventListener('resize', onResize);
