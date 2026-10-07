@@ -42,6 +42,7 @@ const supabase=createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
 
 const FILES={
   'game.js':'../game.js',
+  'lobby-hub.js':'../lobby-hub.js',
   'game-config.js':'../game-config.js',
   'scene-data.js':'../scene-data.js',
   'onevone-map.js':'../onevone-map.js',
