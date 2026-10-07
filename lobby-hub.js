@@ -47,7 +47,8 @@
     support:['CUSTOMER SERVICE','DIAGNOSTICS & HELP'],
     recall:['RECALL','RETURNING PLAYER REWARD'],
     crate:['CRATES','S2 REWARD CRATES'],
-    shop:['SHOP','S2 LOCAL CATALOG']
+    shop:['SHOP','S2 LOCAL CATALOG'],
+    modes:['GAME MODES','CHOOSE HOW TO PLAY']
   };
 
   const defaults=()=>({
@@ -317,6 +318,14 @@
     '</div>';
   }
 
+  function renderModes(){
+    return '<div class="s2-grid">'+
+      '<article class="s2-tile selected"><small>CLASSIC</small><strong>SOLO</strong><p>Green Valley · 1 player + 29 bots.</p>'+button('SELECT SOLO','choose-solo')+'</article>'+
+      '<article class="s2-tile"><small>MULTIPLAYER</small><strong>1V1 ARENA</strong><p>Invite an online friend. 10 minutes · first to 40 kills · LMG-5.</p>'+button('OPEN FRIENDS','open-friends')+'</article>'+
+      '<article class="s2-tile"><small>CO-OP</small><strong>FRIEND / TEAM</strong><p>The current online prototype supports 1V1 rooms. Full team matchmaking still needs multiplayer backend expansion.</p><b class="s2-state">BACKEND EXPANSION NEEDED</b></article>'+
+    '</div>';
+  }
+
   function renderWiki(){
     return '<div class="s2-grid">'+
       '<article class="s2-tile"><small>MODE</small><strong>BATTLE ROYALE</strong><p>Green Valley · 1 player + 29 bots · loot, vehicles and shrinking zone.</p></article>'+
@@ -398,7 +407,8 @@
       support:renderSupport,
       recall:renderRecall,
       crate:renderCrate,
-      shop:renderShop
+      shop:renderShop,
+      modes:renderModes
     }[activePage]||renderSeason;
 
     if(content()) content().innerHTML=renderer();
@@ -548,6 +558,12 @@
       return;
     }
 
+    if(action==='choose-solo'){
+      close();
+      document.querySelector('.mode-card[data-mode="solo"]')?.click();
+      return;
+    }
+
     if(action==='open-friends'){
       close();
       document.querySelector('[data-shortcut="friends"]')?.click();
@@ -608,6 +624,7 @@
     document.querySelector('[data-shortcut="shop"]')?.addEventListener('click',()=>open('shop'));
 
     document.querySelector('.event-banner')?.addEventListener('click',()=>open('season'));
+    document.querySelector('.match-mode-card')?.addEventListener('click',()=>open('modes'));
 
     applyLobbyState();
     renderHeader();
