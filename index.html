@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
   <meta name="theme-color" content="#111827" />
   <title>Mini 3D Battle</title>
-  <link rel="stylesheet" href="./style.css?v=20261004-car2" />
+  <link rel="stylesheet" href="./style.css?v=20261007-s2hub1" />
   <link rel="stylesheet" href="./ui-layout.css?v=20261004-gui1" />
 </head>
 <body>
@@ -97,7 +97,7 @@
             <span class="mobile-brand-mark">M3D</span>
             <div>
               <strong>MINI 3D BATTLE</strong>
-              <small>SEASON 01</small>
+              <small>SEASON 02</small>
             </div>
           </div>
           <div class="mobile-profile">
@@ -151,7 +151,7 @@
         </aside>
 
         <section class="lobby-hero">
-          <div class="season-tag">SEASON 01</div>
+          <div class="season-tag">SEASON 02</div>
           <div class="hero-kicker">BATTLE ROYALE</div>
           <h1>READY FOR<br />BATTLE?</h1>
           <p>Choose a mode and enter the battlefield.</p>
@@ -247,7 +247,7 @@
         </button>
         <button class="lobby-nav-item active" data-lobby-tab="season">
           <span class="lobby-nav-icon">★</span>
-          <span>S32/SEASON</span>
+          <span>S2/SEASON</span>
         </button>
         <button class="lobby-nav-item" data-lobby-tab="workshop">
           <span class="lobby-nav-icon">⚒</span>
@@ -451,11 +451,29 @@
       </div>
     </div>
 
+    <div id="s2HubOverlay" class="s2-hub-overlay hidden" aria-hidden="true">
+      <section class="s2-hub-shell" role="dialog" aria-modal="true" aria-labelledby="s2HubTitle">
+        <header class="s2-hub-header">
+          <div>
+            <small id="s2HubSubtitle">SEASON 02</small>
+            <strong id="s2HubTitle">S2 / SEASON</strong>
+          </div>
+          <div class="s2-hub-wallet">
+            <span>S2 CREDITS</span>
+            <b id="s2HubCredits">0</b>
+          </div>
+          <button id="s2HubClose" class="s2-hub-close" aria-label="Close Season 2 menu">×</button>
+        </header>
+
+        <main id="s2HubContent" class="s2-hub-content"></main>
+      </section>
+    </div>
+
     <div id="backpackOverlay" class="backpack-overlay hidden">
       <div class="backpack-panel">
         <div class="backpack-header">
           <div>
-            <small>S1 INVENTORY</small>
+            <small>S2 INVENTORY</small>
             <strong>BACKPACK</strong>
           </div>
           <button id="backpackClose">×</button>
@@ -494,7 +512,8 @@
   </div>
 
   <script src="./studio-gui-test.js?v=20261004-gui1"></script>
-  <script type="module" src="./game.js?v=20261007-1v1-deathmatch1"></script>
+  <script src="./lobby-hub.js?v=20261007-s2hub1"></script>
+  <script type="module" src="./game.js?v=20261007-s2hub1"></script>
   <script type="module" src="./profile.js?v=20261004-stable-social2"></script>
   <script type="module" src="./studio-entry.js?v=20261004-gui1"></script>
 </body>
